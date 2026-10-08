@@ -78,13 +78,16 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   // Media
   const [photoUrl, setPhotoUrl] = useState<string>(initialData?.photoUrl || DEFAULT_SAMPLE_PHOTO);
   const [ownerSignature, setOwnerSignature] = useState<string>(initialData?.ownerSignature || '');
+  const [registrarSignature, setRegistrarSignature] = useState<string>(
+    initialData?.registrarSignature || DEFAULT_REGISTRAR_SIGNATURE
+  );
   const [registrarName, setRegistrarName] = useState(
     initialData?.registrarName || user?.fullName || 'ኢንስፔክተር አለሙ ከበደ'
   );
 
   // Modals
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
-  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [signatureTarget, setSignatureTarget] = useState<'owner' | 'registrar' | null>(null);
 
   // Preview generated next numbers
   const nextIdNum = initialData?.idCardNumber || getNextIdCardNumber();
@@ -173,6 +176,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         photoUrl,
         ownerSignature,
         registrarName,
+        registrarSignature: registrarSignature || DEFAULT_REGISTRAR_SIGNATURE,
       };
       onSuccess(updated, targetAction);
     } else {
@@ -204,7 +208,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         photoUrl,
         ownerSignature: ownerSignature || DEFAULT_REGISTRAR_SIGNATURE,
         registrarName,
-        registrarSignature: DEFAULT_REGISTRAR_SIGNATURE,
+        registrarSignature: registrarSignature || DEFAULT_REGISTRAR_SIGNATURE,
         approverName: 'ኮማንደር መንግስቱ በቀለ',
         approverSignature: branding.defaultApproverSignature,
       });
@@ -658,19 +662,42 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             {/* Owner Signature Launcher */}
             <div className="md:col-span-1 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
               <span className="block text-xs font-bold text-slate-300 mb-2">
-                የባለመሳሪያው ዲጂታል ፊርማ
+                የባለመሳሪያው ዲጂታል ፊርማ (Owner)
               </span>
               <div className="flex items-center gap-3">
                 <div className="h-12 w-28 overflow-hidden rounded-lg border border-slate-700 bg-white flex items-center justify-center p-1">
                   {ownerSignature ? (
-                    <img src={ownerSignature} alt="Signature" className="max-h-full max-w-full object-contain" />
+                    <img src={ownerSignature} alt="Owner Signature" className="max-h-full max-w-full object-contain" />
                   ) : (
                     <span className="text-[10px] text-slate-400 italic">ያልተፈረመ</span>
                   )}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsSignatureModalOpen(true)}
+                  onClick={() => setSignatureTarget('owner')}
+                  className="flex items-center gap-1 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 cursor-pointer"
+                >
+                  <Edit3 className="h-3.5 w-3.5" /> ፈርም
+                </button>
+              </div>
+            </div>
+
+            {/* Registrar Signature Launcher (የመዝጋቢው ፍርማ) */}
+            <div className="md:col-span-1 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
+              <span className="block text-xs font-bold text-slate-300 mb-2">
+                የመዝጋቢው ዲጂታል ፊርማ (Registrar)
+              </span>
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-28 overflow-hidden rounded-lg border border-slate-700 bg-white flex items-center justify-center p-1">
+                  {registrarSignature ? (
+                    <img src={registrarSignature} alt="Registrar Signature" className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <span className="text-[10px] text-slate-400 italic">ያልተፈረመ</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSignatureTarget('registrar')}
                   className="flex items-center gap-1 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-400 border border-amber-500/40 hover:bg-amber-500/30 cursor-pointer"
                 >
                   <Edit3 className="h-3.5 w-3.5" /> ፈርም
@@ -679,9 +706,9 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             </div>
 
             {/* Registrar Name */}
-            <div className="md:col-span-2 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
+            <div className="md:col-span-1 rounded-xl border border-slate-800 bg-slate-900/80 p-3">
               <span className="block text-xs font-bold text-slate-300 mb-1">
-                የመዝጋቢ ባለስልጣን ስም (Registrar Official)
+                የመዝጋቢ ባለስልጣን ስም
               </span>
               <input
                 type="text"
@@ -691,7 +718,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-white"
               />
               <span className="mt-1 block text-[10px] text-slate-500">
-                የኮሚሽኑ ህጋዊ ማህተም እና የሃላፊው ፍቃድ በሲስተሙ አውቶማቲክ ይተገበራል፡፡
+                የኮሚሽኑ ማህተም እና ፍቃድ በሲስተሙ አውቶማቲክ ይተገበራል
               </span>
             </div>
           </div>
@@ -749,9 +776,21 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       />
 
       <SignatureModal
-        isOpen={isSignatureModalOpen}
-        onClose={() => setIsSignatureModalOpen(false)}
-        onSignatureSaved={(sig) => setOwnerSignature(sig)}
+        isOpen={signatureTarget !== null}
+        onClose={() => setSignatureTarget(null)}
+        title={
+          signatureTarget === 'registrar'
+            ? 'የመዝጋቢው ባለስልጣን ዲጂታል ፊርማ (Registrar Signature)'
+            : 'የባለመሳሪያው ዲጂታል ፊርማ (Owner Signature)'
+        }
+        onSignatureSaved={(sig) => {
+          if (signatureTarget === 'registrar') {
+            setRegistrarSignature(sig);
+          } else {
+            setOwnerSignature(sig);
+          }
+          setSignatureTarget(null);
+        }}
       />
     </div>
   );

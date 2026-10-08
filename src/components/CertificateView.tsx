@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { FirearmRegistration, SystemBranding } from '../types/index.ts';
 import { Printer, ShieldCheck, Lock, AlertTriangle, ArrowLeft } from 'lucide-react';
 
@@ -15,8 +16,26 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   onBack,
   showActions = true,
 }) => {
+  const [certQrUrl, setCertQrUrl] = useState<string>('');
   const isApproved = registration.status === 'የጸደቀ';
   const isExpired = new Date(registration.expiryDate) < new Date();
+
+  // Verification URL for QR Code scanner
+  const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${registration.idCardNumber}`;
+
+  useEffect(() => {
+    QRCode.toDataURL(verificationUrl, {
+      width: 280,
+      margin: 1,
+      color: {
+        dark: '#0F172A',
+        light: '#FFFFFF',
+      },
+      errorCorrectionLevel: 'H',
+    })
+      .then((url) => setCertQrUrl(url))
+      .catch((err) => console.error('Failed to generate Certificate QR code', err));
+  }, [verificationUrl, registration.idCardNumber]);
 
   const handlePrint = () => {
     window.print();
@@ -156,22 +175,38 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             </div>
           </div>
 
-          {/* Registration Number & Date on Right Header */}
+          {/* Registration Number, Date & Authenticity QR Code on Right Header */}
           <div className="mt-3 flex items-center justify-between text-xs">
-            <div className="inline-flex items-center gap-1.5 rounded bg-amber-50 px-3 py-1 border border-amber-200">
+            <div className="inline-flex items-center gap-1.5 rounded bg-amber-50 px-3 py-1.5 border border-amber-200">
               <span className="font-bold text-amber-900">የመታወቂያ ካርድ ቁጥር፡</span>
               <span className="font-mono font-black text-slate-900">{registration.idCardNumber}</span>
             </div>
-            <div className="flex flex-col items-end space-y-0.5">
-              <div className="font-mono text-xs">
-                <span className="font-bold text-slate-700">ቁጥር፡ </span>
-                <span className="font-black text-amber-900 bg-amber-100/60 px-2 py-0.5 rounded border border-amber-300">
-                  {registration.certNumber}
-                </span>
+
+            {/* Right: Sequential Cert Number, Date & Scannable QR Code */}
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end space-y-0.5">
+                <div className="font-mono text-xs">
+                  <span className="font-bold text-slate-700">ቁጥር፡ </span>
+                  <span className="font-black text-amber-900 bg-amber-100/60 px-2 py-0.5 rounded border border-amber-300">
+                    {registration.certNumber}
+                  </span>
+                </div>
+                <div className="text-xs">
+                  <span className="font-semibold text-slate-600">ቀን፡ </span>
+                  <span className="font-bold text-slate-900">{registration.registrationDate}</span>
+                </div>
               </div>
-              <div className="text-xs">
-                <span className="font-semibold text-slate-600">ቀን፡ </span>
-                <span className="font-bold text-slate-900">{registration.registrationDate}</span>
+
+              {/* Scannable Certificate Authenticity QR Code */}
+              <div className="flex flex-col items-center">
+                <div className="h-16 w-16 overflow-hidden rounded border-2 border-slate-300 bg-white p-0.5 shadow-sm">
+                  {certQrUrl ? (
+                    <img src={certQrUrl} alt="Certificate QR Code" className="h-full w-full object-contain" />
+                  ) : (
+                    <div className="h-full w-full bg-slate-100 animate-pulse" />
+                  )}
+                </div>
+                <span className="text-[7.5px] font-bold text-slate-500">ለማረጋገጥ ስካን</span>
               </div>
             </div>
           </div>
@@ -355,16 +390,31 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
                 </div>
               </div>
 
-              {/* Approving Official & Official Seal Stamp */}
+              {/* Approving Official & Official Seal Stamp (Using Police Logo as Round Seal) */}
               <div className="relative flex flex-col items-center">
-                {/* Official Round Stamp Overlay */}
-                <div className="absolute -top-10 right-2 h-24 w-24 pointer-events-none opacity-85">
-                  <img 
-                    src={branding.officialStampSeal} 
-                    alt="Official Stamp" 
-                    className="h-full w-full object-contain" 
-                  />
-                </div>
+                {/* Official Round Stamp Overlay using Police Commission Logo */}
+                {isApproved && (
+                  <div className="absolute -top-12 -right-3 h-28 w-28 pointer-events-none z-20 rotate-[-12deg] opacity-90 drop-shadow-sm">
+                    <div className="relative h-full w-full rounded-full border-4 border-dashed border-blue-900 bg-blue-900/5 p-1 flex items-center justify-center">
+                      <div className="h-full w-full rounded-full border-2 border-blue-800 p-1 flex flex-col items-center justify-center text-center">
+                        {/* Police Logo as Central Seal Device */}
+                        <div className="h-14 w-14 opacity-95">
+                          <img
+                            src={branding.policeLogo}
+                            alt="Police Seal Logo"
+                            className="h-full w-full object-contain filter hue-rotate-190 contrast-125"
+                          />
+                        </div>
+                        <span className="text-[7.5px] font-black tracking-tight text-blue-900 leading-none">
+                          ክብ ማህተም • ጸድቋል
+                        </span>
+                        <span className="text-[6.5px] font-bold text-blue-800 leading-none">
+                          አሶሳ / ASSOSA
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="h-12 w-full flex items-center justify-center">
                   {isApproved ? (

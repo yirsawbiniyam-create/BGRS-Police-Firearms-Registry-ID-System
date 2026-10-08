@@ -42,25 +42,14 @@ export const LoginForm: React.FC = () => {
       <div className="pointer-events-none absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-blue-600/10 blur-3xl"></div>
 
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/95 p-8 shadow-2xl backdrop-blur-md">
-        {/* Top Flags & Police Crest */}
+        {/* Top Police Logo (Only the Police Commission Emblem, No Flags, Seamless Background) */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="h-7 w-12 overflow-hidden rounded border border-amber-400/40 shadow">
-              <img src={branding.bgrsFlag} alt="BGRS Flag" className="h-full w-full object-cover" />
-            </div>
-            
-            {/* Main Police Commission Emblem Logo */}
-            <div className="relative h-24 w-24 drop-shadow-2xl transition hover:scale-105">
-              <img
-                src={branding.policeLogo}
-                alt="Police Logo"
-                className="h-full w-full object-contain"
-              />
-            </div>
-
-            <div className="h-7 w-12 overflow-hidden rounded border border-amber-400/40 shadow">
-              <img src={branding.ethiopiaFlag} alt="Ethiopian Flag" className="h-full w-full object-cover" />
-            </div>
+          <div className="relative mb-3 flex h-32 w-32 items-center justify-center transition hover:scale-105">
+            <img
+              src={branding.policeLogo}
+              alt="Police Logo"
+              className="h-full w-full object-contain filter drop-shadow-[0_12px_24px_rgba(245,158,11,0.25)]"
+            />
           </div>
 
           {/* Title in Amharic & English */}

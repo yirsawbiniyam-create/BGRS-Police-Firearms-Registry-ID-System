@@ -59,6 +59,7 @@ const DEFAULT_BRANDING: SystemBranding = {
   ethiopiaFlag: DEFAULT_ETHIOPIAN_FLAG,
   officialStampSeal: DEFAULT_OFFICIAL_STAMP,
   defaultApproverSignature: DEFAULT_APPROVER_SIGNATURE,
+  defaultRegistrarSignature: DEFAULT_REGISTRAR_SIGNATURE,
   commissionNameAm: 'የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን',
   commissionNameEn: 'Benishangul Gumuz Regional Police Commission',
   processNameAm: 'የወንጀል መከላከል የስራ ሂደት',

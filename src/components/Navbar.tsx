@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
         { id: 'newRegistration', label: '+ አዲስ ምዝገባ', icon: Crosshair },
         { id: 'records', label: 'የተመዘገቡ ማህደሮች', icon: FileText },
         { id: 'approvals', label: 'የማጽደቂያ ሁኔታ', icon: CheckCircle, badge: pendingCount },
-        { id: 'settings', label: 'አርማዎችና ሩልስ', icon: Settings },
+        { id: 'settings', label: 'አርማዎችና ቅንብር', icon: Settings },
       ];
 
   return (

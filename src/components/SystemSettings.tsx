@@ -19,7 +19,7 @@ export const SystemSettings: React.FC = () => {
 
   const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: 'policeLogo' | 'bgrsFlag' | 'ethiopiaFlag' | 'officialStampSeal' | 'defaultApproverSignature'
+    field: 'policeLogo' | 'bgrsFlag' | 'ethiopiaFlag' | 'officialStampSeal' | 'defaultApproverSignature' | 'defaultRegistrarSignature'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -171,7 +171,7 @@ export const SystemSettings: React.FC = () => {
           </label>
         </div>
 
-        {/* 4. Official Approver Signature & Stamp */}
+        {/* 4. Official Approver Signature */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -201,6 +201,37 @@ export const SystemSettings: React.FC = () => {
             />
           </label>
         </div>
+
+        {/* 5. Registrar Default Signature */}
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <PenTool className="h-4 w-4" /> የመዝጋቢው ፖሊስ ባለስልጣን ፊርማ
+              </span>
+              <span className="text-[10px] text-slate-400">የመዝጋቢ ፊርማ</span>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              በምዝገባ ሰርቲፊኬት እና ሰነዶች ላይ በመዝጋቢነት የሚቀመጥ ፊርማ
+            </p>
+            <div className="flex items-center justify-center rounded-2xl bg-white p-4 border border-slate-800 h-36">
+              <img
+                src={branding.defaultRegistrarSignature}
+                alt="Registrar Signature"
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+          </div>
+          <label className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-800 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
+            <Upload className="h-4 w-4 text-amber-400" /> አዲስ የመዝጋቢ ፊርማ ጫን
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleFileUpload(e, 'defaultRegistrarSignature')}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
 
       {/* Emergency Contact Phone Config */}
@@ -225,68 +256,6 @@ export const SystemSettings: React.FC = () => {
             አስቀምጥ
           </button>
         </form>
-      </div>
-
-      {/* Firestore Security Rules Display Card */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-800 pb-3 mb-4 gap-2">
-          <div>
-            <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-2">
-              <Shield className="h-4 w-4" /> የፋየርስቶር ሴኪዩሪቲ ሩልስ (Firestore Security Rules)
-            </h3>
-            <p className="text-xs text-slate-400">
-              ይህን ኮድ ኮፒ አድርገው በ Firebase Console &gt; Firestore Database &gt; Rules ውስጥ ይለጥፉት (Paste)
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              const rulesCode = `rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /firearms_records/{recordId} {
-      allow read: if true;
-      allow create, update, delete: if true;
-    }
-    match /system_config/{configId} {
-      allow read, write: if true;
-    }
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}`;
-              navigator.clipboard.writeText(rulesCode);
-              alert('የፋየርስቶር ሩልስ (Firestore Rules) ኮፒ ተደርጓል!');
-            }}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition cursor-pointer shadow"
-          >
-            <Check className="h-4 w-4" /> ሩልሱን ኮፒ አድርግ (Copy Rules)
-          </button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-emerald-300/90 overflow-x-auto">
-          <pre>{`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    // 1. የጦር መሳሪያ ምዝገባዎች (ለሁሉም ተነባቢ ለQR ስካን፤ ለአድሚንና ሃላፊ የተፈቀደ)
-    match /firearms_records/{recordId} {
-      allow read: if true;
-      allow create, update, delete: if true;
-    }
-
-    // 2. የሲስተም አርማዎች፣ ባንዲራዎችና የሃላፊ ፊርማ
-    match /system_config/{configId} {
-      allow read, write: if true;
-    }
-
-    // 3. ሌሎች ያልተፈቀዱትን መከልከል
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}`}</pre>
-        </div>
       </div>
     </div>
   );

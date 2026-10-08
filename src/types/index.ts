@@ -83,6 +83,7 @@ export interface SystemBranding {
   ethiopiaFlag: string;
   officialStampSeal: string;
   defaultApproverSignature: string;
+  defaultRegistrarSignature: string;
   commissionNameAm: string;
   commissionNameEn: string;
   processNameAm: string;
