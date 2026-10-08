@@ -1,0 +1,6 @@
+{
+  "name": "BGRS Police Firearms Registry & ID System",
+  "description": "የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የወንጀል መከላከል የስራ ሂደት የጦር መሳሪያ ምዝገባ፣ ማረጋገጫ ሰርቲፊኬት እና የኤቲኤም ሳይዝ ዲጂታል መታወቂያ ሲስተም",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isValidStatus(status) {
+      return status in ['በሂደት ላይ', 'የጸደቀ', 'የተከለከለ', 'የታገደ'];
+    }
+
+    // Firearms Registry collection
+    match /firearms_records/{recordId} {
+      // Anyone can read records to allow public QR code verification
+      allow read: if true;
+
+      // Allow creating a registration if it has required identity and weapon serial fields
+      allow create: if request.resource.data.fullName is string
+                    && request.resource.data.serialNumber is string
+                    && request.resource.data.idCardNumber is string;
+
+      // Allow updates to status, dates, notes, and weapon details
+      allow update: if request.resource.data.fullName is string
+                    && request.resource.data.serialNumber is string;
+
+      // Allow delete for maintenance
+      allow delete: if true;
+    }
+
+    // System Branding & Config collection (Logos, Flags, Stamps)
+    match /system_config/{configId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Default deny for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
