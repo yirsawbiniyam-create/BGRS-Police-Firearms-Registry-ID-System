@@ -146,11 +146,11 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
           {/* Watermark Police Logo on Front */}
           <div 
-            className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-25"
             style={{
               backgroundImage: `url(${branding.policeLogo})`,
               backgroundPosition: 'center',
-              backgroundSize: '45%',
+              backgroundSize: '48%',
               backgroundRepeat: 'no-repeat',
             }}
           />
@@ -352,7 +352,7 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
           {/* Police Logo Watermark in Center (በመታወቂያዉ በስተጀርባ ላይ የፖሊስ ኮሚሽኑ ሎጎ በዋተር ማርክ) */}
           <div 
-            className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-22"
             style={{
               backgroundImage: `url(${branding.policeLogo})`,
               backgroundPosition: 'center',

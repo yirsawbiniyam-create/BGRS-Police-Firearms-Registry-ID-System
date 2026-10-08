@@ -33,8 +33,8 @@ interface SystemContextType {
   records: FirearmRegistration[];
   branding: SystemBranding;
   firestoreStatus: 'synced' | 'syncing' | 'offline';
-  updateBranding: (branding: Partial<SystemBranding>) => void;
-  resetBrandingToDefaults: () => void;
+  updateBranding: (branding: Partial<SystemBranding>) => Promise<boolean>;
+  resetBrandingToDefaults: () => Promise<boolean>;
   addRegistration: (formData: Omit<FirearmRegistration, 'id' | 'idCardNumber' | 'certNumber' | 'createdAt' | 'updatedAt' | 'status'>) => FirearmRegistration;
   updateRegistration: (id: string, updates: Partial<FirearmRegistration>) => void;
   deleteRegistration: (id: string) => void;
@@ -272,6 +272,45 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Firestore Connection & Sync Status
   const [firestoreStatus, setFirestoreStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
 
+  // Firestore Real-Time Listener for System Branding (Logos, Flags, Seals, Signatures)
+  useEffect(() => {
+    let unsubscribeBranding: (() => void) | null = null;
+    try {
+      const brandingDocRef = doc(db, 'system_config', 'branding');
+      unsubscribeBranding = onSnapshot(
+        brandingDocRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const remoteData = docSnap.data() as Partial<SystemBranding>;
+            setBranding((prev) => ({
+              ...prev,
+              ...remoteData,
+            }));
+            // Cache locally
+            localStorage.setItem(
+              STORAGE_KEYS.BRANDING,
+              JSON.stringify({ ...DEFAULT_BRANDING, ...remoteData })
+            );
+          } else {
+            // First time initialization in cloud
+            setDoc(brandingDocRef, DEFAULT_BRANDING).catch((e) => {
+              console.warn('Initial branding cloud seed notice:', e);
+            });
+          }
+        },
+        (error) => {
+          console.warn('Branding cloud sync notice (using cached defaults):', error);
+        }
+      );
+    } catch (err) {
+      console.warn('Branding listener error:', err);
+    }
+
+    return () => {
+      if (unsubscribeBranding) unsubscribeBranding();
+    };
+  }, []);
+
   // Firestore Real-Time Listener for Firearms Records
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
@@ -418,19 +457,31 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setUser(null);
   };
 
-  const updateBranding = (newBranding: Partial<SystemBranding>) => {
+  const updateBranding = async (newBranding: Partial<SystemBranding>): Promise<boolean> => {
     const updated = { ...branding, ...newBranding };
     setBranding(updated);
     try {
-      setDoc(doc(db, 'system_config', 'branding'), updated, { merge: true }).catch(() => {});
-    } catch {}
+      localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(updated));
+      await setDoc(doc(db, 'system_config', 'branding'), updated, { merge: true });
+      setFirestoreStatus('synced');
+      return true;
+    } catch (err) {
+      console.warn('Firestore branding update notice:', err);
+      return false;
+    }
   };
 
-  const resetBrandingToDefaults = () => {
+  const resetBrandingToDefaults = async (): Promise<boolean> => {
     setBranding(DEFAULT_BRANDING);
     try {
-      setDoc(doc(db, 'system_config', 'branding'), DEFAULT_BRANDING).catch(() => {});
-    } catch {}
+      localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(DEFAULT_BRANDING));
+      await setDoc(doc(db, 'system_config', 'branding'), DEFAULT_BRANDING);
+      setFirestoreStatus('synced');
+      return true;
+    } catch (err) {
+      console.warn('Firestore branding reset notice:', err);
+      return false;
+    }
   };
 
   const addRegistration = (

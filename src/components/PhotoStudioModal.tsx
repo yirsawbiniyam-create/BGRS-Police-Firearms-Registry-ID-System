@@ -141,16 +141,16 @@ export const PhotoStudioModal: React.FC<PhotoStudioModalProps> = ({
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = 600;
-      canvas.height = 800;
+      canvas.width = 450;
+      canvas.height = 600;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       // Apply brightness & contrast filters
       ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-      ctx.drawImage(img, 0, 0, 600, 800);
+      ctx.drawImage(img, 0, 0, 450, 600);
 
-      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const finalDataUrl = canvas.toDataURL('image/jpeg', 0.86);
       onPhotoSelected(finalDataUrl);
       onClose();
     };

@@ -9,38 +9,49 @@ import {
   Flag, 
   PenTool, 
   Phone,
-  Sparkles
+  Sparkles,
+  CloudCheck,
+  Loader2
 } from 'lucide-react';
+import { compressImage } from '../utils/imageCompressor.ts';
 
 export const SystemSettings: React.FC = () => {
-  const { branding, updateBranding, resetBrandingToDefaults } = useSystem();
+  const { branding, updateBranding, resetBrandingToDefaults, firestoreStatus } = useSystem();
   const [phone, setPhone] = useState(branding.contactPhone);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     field: 'policeLogo' | 'bgrsFlag' | 'ethiopiaFlag' | 'officialStampSeal' | 'defaultApproverSignature' | 'defaultRegistrarSignature'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      updateBranding({ [field]: dataUrl });
+    setIsUploading(true);
+    try {
+      // Compress to ensure it easily fits within Firestore limits and loads rapidly across all devices
+      const compressedDataUrl = await compressImage(file, 500, 500, 0.88);
+      await updateBranding({ [field]: compressedDataUrl });
       triggerSuccess();
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Failed to compress/save image:', err);
+      alert('ምስሉን ማዘጋጀት አልተቻለም፤ እባክዎ እንደገና ይሞክሩ፡፡');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const triggerSuccess = () => {
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    setTimeout(() => setSaveSuccess(false), 4000);
   };
 
-  const handleSavePhone = (e: React.FormEvent) => {
+  const handleSavePhone = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateBranding({ contactPhone: phone });
+    setIsUploading(true);
+    await updateBranding({ contactPhone: phone });
+    setIsUploading(false);
     triggerSuccess();
   };
 
@@ -69,10 +80,17 @@ export const SystemSettings: React.FC = () => {
         </button>
       </div>
 
+      {isUploading && (
+        <div className="flex items-center gap-2 rounded-2xl border border-amber-500/50 bg-amber-500/15 p-4 text-xs font-bold text-amber-300 shadow">
+          <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+          <span>ምስሉን በማዘጋጀትና ፋየርስቶር (Firestore) ላይ በቀጥታ ሴቭ በማድረግ ላይ...</span>
+        </div>
+      )}
+
       {saveSuccess && (
         <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/50 bg-emerald-500/15 p-4 text-xs font-bold text-emerald-300 shadow">
-          <Check className="h-4 w-4" />
-          <span>ማስተካከያው በተሳካ ሁኔታ በቋሚነት ተቀምጧል!</span>
+          <Check className="h-4 w-4 text-emerald-400" />
+          <span>ማስተካከያው በቀጥታ ፋየርስቶር (Firestore) ላይ ሴቭ ሆኗል፤ በሁሉም ኮምፒውተሮችና ስልኮች ላይ በቅጽበት ይደርሳል!</span>
         </div>
       )}
 
@@ -256,6 +274,62 @@ export const SystemSettings: React.FC = () => {
             አስቀምጥ
           </button>
         </form>
+      </div>
+
+      {/* Firestore Security Rules Helper (Hidden / Collapsed by default) */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
+        <details className="group">
+          <summary className="flex cursor-pointer items-center justify-between text-xs font-bold text-slate-400 hover:text-amber-400">
+            <span className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-emerald-400" /> የፋየርስቶር ደህንነት ደንብ (Firestore Security Rules - firestore.rules)
+            </span>
+            <span className="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-slate-400">
+              በFirebase Console ውስጥ <b>Firestore Database → Rules</b> ውስጥ የሚለጠፈው ይፋዊ የደህንነት ደንብ፡
+            </p>
+            <pre className="rounded-xl bg-slate-950 p-4 font-mono text-[11px] text-emerald-400 overflow-x-auto border border-slate-800">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Firearms Registry collection
+    match /firearms_records/{recordId} {
+      allow read: if true; // Public QR verification allowed
+      allow create, update, delete: if true; // Authorized police administrators
+    }
+
+    // System Branding & Settings
+    match /system_config/{configId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}`}
+            </pre>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /firearms_records/{recordId} {
+      allow read: if true;
+      allow create, update, delete: if true;
+    }
+    match /system_config/{configId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}`);
+                alert('የፋየርስቶር ደንብ (Firestore Rules) ኮፒ ተደርጓል!');
+              }}
+              className="rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
+            >
+              ደንቡን ኮፒ አድርግ (Copy Rules)
+            </button>
+          </div>
+        </details>
       </div>
     </div>
   );
