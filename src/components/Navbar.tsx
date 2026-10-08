@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
       ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
+    <header className="no-print sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         {/* Brand & Emblem Logo */}
         <div 
