@@ -38,7 +38,8 @@ const MainApp: React.FC = () => {
     }
   }, []);
 
-  // If URL has verification query, render the authentic Public Verification Portal
+  // When QR code is scanned: Isolated public verification view.
+  // Strictly verifies authenticity and validity only; prevents entry into the main dashboard/system.
   if (verifyIdParam) {
     const targetRecord = records.find(
       r => r.idCardNumber.toLowerCase() === verifyIdParam.toLowerCase()
@@ -49,11 +50,6 @@ const MainApp: React.FC = () => {
         registration={targetRecord}
         idNumber={verifyIdParam}
         branding={branding}
-        onBackToApp={() => {
-          // Remove query from URL and return to dashboard
-          window.history.pushState({}, '', window.location.pathname);
-          setVerifyIdParam(null);
-        }}
       />
     );
   }

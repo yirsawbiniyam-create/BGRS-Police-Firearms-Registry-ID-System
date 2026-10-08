@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSystem } from '../context/SystemContext.tsx';
-import { Shield, Lock, User, KeyRound, AlertCircle, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Shield, Lock, User, KeyRound, AlertCircle } from 'lucide-react';
 
 export const LoginForm: React.FC = () => {
   const { login, branding } = useSystem();
@@ -21,18 +21,6 @@ export const LoginForm: React.FC = () => {
       }
       setIsLoading(false);
     }, 300);
-  };
-
-  // Quick autofill buttons for evaluation ease
-  const handleQuickLogin = (role: 'admin' | 'official') => {
-    if (role === 'admin') {
-      setUsername('admin');
-      setPassword('Admin@1234');
-    } else {
-      setUsername('admin2026');
-      setPassword('Admin@2026');
-    }
-    setErrorMessage(null);
   };
 
   return (
@@ -87,7 +75,7 @@ export const LoginForm: React.FC = () => {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin ወይም admin2026"
+                placeholder="የተጠቃሚ ስም (Username)"
                 className="w-full rounded-xl border border-slate-300 bg-slate-50/80 py-2.5 pl-10 pr-3 text-sm font-medium text-slate-900 placeholder-slate-400 shadow-2xs transition focus:border-blue-700 focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-100"
               />
             </div>
@@ -106,7 +94,7 @@ export const LoginForm: React.FC = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                placeholder="የይለፍ ቃልዎን ያስገቡ"
                 className="w-full rounded-xl border border-slate-300 bg-slate-50/80 py-2.5 pl-10 pr-3 text-sm font-medium text-slate-900 placeholder-slate-400 shadow-2xs transition focus:border-blue-700 focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-100"
               />
             </div>
@@ -123,54 +111,10 @@ export const LoginForm: React.FC = () => {
           </button>
         </form>
 
-        {/* Quick Credentials Switcher (Professional Cards) */}
-        <div className="mt-6 rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-800 mb-2">
-            <span className="flex items-center gap-1.5 text-blue-950 font-bold">
-              <Sparkles className="h-3.5 w-3.5 text-amber-600" /> ለመሞከር ፈጣን መግቢያ
-            </span>
-            <span className="text-[10px] font-semibold text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
-              1-ክሊክ ምረጥ
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {/* Admin Quick Button */}
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('admin')}
-              className="flex flex-col items-start rounded-xl border border-slate-200 bg-white p-2.5 text-left shadow-2xs transition hover:border-blue-500 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.98] cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-blue-950 font-black text-xs">
-                <Shield className="h-3.5 w-3.5 text-blue-700" />
-                <span>አድሚን (Admin)</span>
-              </div>
-              <span className="mt-0.5 text-[9px] font-mono text-slate-600 font-semibold">
-                admin • Admin@1234
-              </span>
-              <span className="text-[8px] text-blue-800 font-medium mt-0.5">
-                መዝጋቢና ፕሪንተር
-              </span>
-            </button>
-
-            {/* Official / Approver Quick Button */}
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('official')}
-              className="flex flex-col items-start rounded-xl border border-slate-200 bg-white p-2.5 text-left shadow-2xs transition hover:border-emerald-500 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.98] cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-emerald-950 font-black text-xs">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
-                <span>ሃላፊ / አጽዳቂ</span>
-              </div>
-              <span className="mt-0.5 text-[9px] font-mono text-slate-600 font-semibold">
-                admin2026 • Admin@2026
-              </span>
-              <span className="text-[8px] text-emerald-800 font-medium mt-0.5">
-                የስራ ሂደት ሃላፊ
-              </span>
-            </button>
-          </div>
+        {/* Institutional Security Notice (የአድሚኑ እና የሀላፊዉ መረጃዎች ተደብቀዋል) */}
+        <div className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-slate-50 border border-slate-200 py-2.5 px-3 text-xs font-semibold text-slate-700">
+          <Shield className="h-4 w-4 text-blue-900 shrink-0" />
+          <span>የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን ደህንነቱ የተጠበቀ መግቢያ</span>
         </div>
 
         {/* Footer Attribution with crisp text */}

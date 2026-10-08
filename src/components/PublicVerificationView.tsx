@@ -4,7 +4,6 @@ import {
   ShieldCheck, 
   ShieldAlert, 
   AlertTriangle, 
-  ArrowLeft, 
   CheckCircle2, 
   XCircle, 
   Loader2, 
@@ -22,14 +21,12 @@ interface PublicVerificationViewProps {
   registration: FirearmRegistration | null;
   idNumber: string;
   branding: SystemBranding;
-  onBackToApp?: () => void;
 }
 
 export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
   registration: initialRegistration,
   idNumber,
   branding: initialBranding,
-  onBackToApp,
 }) => {
   const [record, setRecord] = useState<FirearmRegistration | null>(initialRegistration);
   const [branding, setBranding] = useState<SystemBranding>(initialBranding);
@@ -180,14 +177,10 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
           <div className="mt-4 rounded-xl bg-slate-950 border border-slate-800 p-3 text-xs text-amber-300">
             ይህ ሰነድ ህጋዊ ላይሆን ወይም ሀሰተኛ ሊሆን ስለሚችል ለፖሊስ በስልክ ቁጥር <b>{branding.contactPhone}</b> ያሳውቁ፡፡
           </div>
-          {onBackToApp && (
-            <button
-              onClick={onBackToApp}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-800 px-5 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition cursor-pointer"
-            >
-              <ArrowLeft className="h-4 w-4" /> ወደ ዋናው ሲስተም ተመለስ
-            </button>
-          )}
+          <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-center text-xs text-slate-400">
+            <span className="font-semibold text-slate-300">ማሳሰቢያ፦ </span>
+            ይህ ገጽ በስካን የተደረገውን ሰነድ ትክክለኛነት ለማጣራት ብቻ የሚያገለግል የተከለለ ማረጋገጫ ነው፡፡
+          </div>
         </div>
       </div>
     );
@@ -250,19 +243,23 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
             <span className="font-mono text-slate-400">
               የተረጋገጠ መታወቂያ፡ <b className="text-amber-400">{record.idCardNumber}</b>
             </span>
-            {onBackToApp && (
-              <button
-                onClick={onBackToApp}
-                className="flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold transition"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" /> ወደ ሲስተም መግቢያ ተመለስ
-              </button>
-            )}
+            <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-[11px] font-bold text-emerald-400">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>ይፋዊ የትክክለኛነት ማረጋገጫ ብቻ (Verification Only)</span>
+            </div>
           </div>
         </div>
 
         {/* ============================================================== */}
-        {/* 1. CRITICAL STATUS BANNER                                      */}
+        {/* STANDALONE SECURITY BANNER (ወደ ዋና ሲስተም እንዳይገባ የተከለከለ) */}
+        {/* ============================================================== */}
+        <div className="mb-6 flex items-start sm:items-center gap-3 rounded-2xl border border-blue-500/30 bg-blue-950/40 p-4 text-xs text-blue-200 backdrop-blur-xs">
+          <Lock className="h-5 w-5 shrink-0 text-amber-400 mt-0.5 sm:mt-0" />
+          <div className="leading-relaxed">
+            <strong className="text-amber-300 font-bold">የደህንነት እና የትክክለኛነት ማስታወቂያ፦ </strong>
+            ይህ ገጽ በኪውአር ኮድ (QR Code) ስካን የተደረገውን የጦር መሳሪያ ፈቃድ ትክክለኛነትና ህጋዊነት ብቻ ለማሳየት የተዘጋጀ ገለልተኛ የህዝብ ማረጋገጫ ነው፡፡ ወደ ዋናው የፖሊስ አስተዳደር ሲስተም ወይም ዳሽቦርድ አያስገባም፡፡
+          </div>
+        </div>
         {/* ============================================================== */}
         {isExpired || isSuspended ? (
           <div className="mb-6 rounded-3xl border-4 border-rose-600 bg-rose-950/80 p-6 text-center shadow-2xl backdrop-blur-sm animate-pulse">

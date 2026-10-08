@@ -56,34 +56,35 @@
     background: #ffffff !important;
   }
 
-  /* Universal Single-Sheet A4 ID Card Print Page (Front & Back together on 1 page) */
+  /* Universal Single-Sheet A4 ID Card Print Page (Front & Back together on 1 page in ATM Size) */
   .id-card-sheet-page {
     width: 210mm !important;
     max-width: 210mm !important;
-    height: 297mm !important;
-    max-height: 297mm !important;
-    min-height: 297mm !important;
+    height: auto !important;
+    max-height: 285mm !important;
     margin: 0 auto !important;
-    padding: 10mm 12mm !important;
+    padding: 8mm 10mm !important;
     box-sizing: border-box !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: flex-start !important;
+    align-items: center !important;
+    justify-content: center !important;
     background: #ffffff !important;
   }
 
-  /* Duplex Page Container (Page 1 Front, Page 2 Back) */
+  /* Duplex Page Container (Page 1 Front, Page 2 Back in ATM Size) */
   .id-card-duplex-page {
     width: 210mm !important;
     max-width: 210mm !important;
-    height: 297mm !important;
-    max-height: 297mm !important;
-    min-height: 297mm !important;
+    height: 280mm !important;
+    max-height: 280mm !important;
     margin: 0 auto !important;
-    padding: 25mm 15mm !important;
+    padding: 15mm 15mm !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
@@ -93,6 +94,39 @@
     break-inside: avoid !important;
     overflow: hidden !important;
     background: #ffffff !important;
+  }
+
+  /* Strict ATM / CR80 Card Dimensions (ISO/IEC 7810 ID-1: 85.6mm x 54mm) */
+  .atm-card-slot {
+    width: 85.6mm !important;
+    height: 54mm !important;
+    min-width: 85.6mm !important;
+    max-width: 85.6mm !important;
+    min-height: 54mm !important;
+    max-height: 54mm !important;
+    border-radius: 3.18mm !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .atm-card-scale-inner {
+    width: 420px !important;
+    height: 265px !important;
+    min-width: 420px !important;
+    min-height: 265px !important;
+    transform: scale(0.7703037) !important;
+    transform-origin: 0 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .atm-fold-line {
+    width: 85.6mm !important;
+    max-width: 85.6mm !important;
   }
 
   /* ATM Card Print Layout */
