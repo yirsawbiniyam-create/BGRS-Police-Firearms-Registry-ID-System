@@ -29,7 +29,7 @@ const MainApp: React.FC = () => {
   const [activeRecord, setActiveRecord] = useState<FirearmRegistration | null>(null);
   const [verifyIdParam, setVerifyIdParam] = useState<string | null>(null);
 
-  // Check URL query for public QR verification: ?verify=ቤጌፖ-ጦመ-0001
+  // Check URL query for public QR verification: ?verify=ቤጉፖ-ጦመ-0001
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const verifyCode = params.get('verify');
