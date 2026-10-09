@@ -119,13 +119,13 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
         <div className="pointer-events-none absolute bottom-3 left-3 h-6 w-6 border-b-2 border-l-2 border-amber-900"></div>
         <div className="pointer-events-none absolute bottom-3 right-3 h-6 w-6 border-b-2 border-r-2 border-amber-900"></div>
 
-        {/* Central Watermark: Police Commission Logo (Clearly Visible and Dignified) */}
+        {/* Central Watermark: Enlarged Police Commission Logo with Pure White Background (ተለቅ ያለ ደማቅ ዋተርማርክ) */}
         <div 
-          className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.30]"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.38] mix-blend-multiply"
           style={{
-            backgroundImage: `url(${branding.policeLogo})`,
-            backgroundPosition: 'center 46%',
-            backgroundSize: '430px',
+            backgroundImage: `url(${branding.watermarkLogo || branding.policeLogo})`,
+            backgroundPosition: 'center 48%',
+            backgroundSize: '580px',
             backgroundRepeat: 'no-repeat',
           }}
         />

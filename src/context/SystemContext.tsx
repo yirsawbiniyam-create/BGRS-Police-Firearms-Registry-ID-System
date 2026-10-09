@@ -9,11 +9,13 @@ import {
   DEFAULT_BGRS_FLAG, 
   DEFAULT_ETHIOPIAN_FLAG, 
   DEFAULT_POLICE_LOGO, 
+  DEFAULT_POLICE_WATERMARK,
   DEFAULT_OFFICIAL_STAMP,
   DEFAULT_APPROVER_SIGNATURE,
   DEFAULT_REGISTRAR_SIGNATURE,
   DEFAULT_SAMPLE_PHOTO
 } from '../utils/assets.ts';
+import { convertLogoToWhiteWatermark } from '../utils/watermarkProcessor.ts';
 import { db } from '../firebase.ts';
 import { 
   collection, 
@@ -55,6 +57,7 @@ const STORAGE_KEYS = {
 
 const DEFAULT_BRANDING: SystemBranding = {
   policeLogo: DEFAULT_POLICE_LOGO,
+  watermarkLogo: DEFAULT_POLICE_WATERMARK,
   bgrsFlag: DEFAULT_BGRS_FLAG,
   ethiopiaFlag: DEFAULT_ETHIOPIAN_FLAG,
   officialStampSeal: DEFAULT_OFFICIAL_STAMP,
@@ -261,7 +264,12 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.BRANDING);
       if (saved) {
-        return { ...DEFAULT_BRANDING, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        return { 
+          ...DEFAULT_BRANDING, 
+          ...parsed, 
+          watermarkLogo: parsed.watermarkLogo || DEFAULT_POLICE_WATERMARK 
+        };
       }
     } catch (e) {
       console.warn('Failed to load branding', e);
@@ -458,7 +466,17 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateBranding = async (newBranding: Partial<SystemBranding>): Promise<boolean> => {
-    const updated = { ...branding, ...newBranding };
+    let finalUpdate = { ...newBranding };
+    // Automatically convert logo to a pure white background watermark if policeLogo was updated without watermarkLogo
+    if (newBranding.policeLogo && !newBranding.watermarkLogo) {
+      try {
+        const whiteWatermark = await convertLogoToWhiteWatermark(newBranding.policeLogo);
+        finalUpdate.watermarkLogo = whiteWatermark;
+      } catch (err) {
+        console.warn('Auto watermark generation notice:', err);
+      }
+    }
+    const updated = { ...branding, ...finalUpdate };
     setBranding(updated);
     try {
       localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(updated));

@@ -157,8 +157,9 @@
 .watermark-overlay {
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 45%;
+  background-size: 78%;
   pointer-events: none;
+  mix-blend-mode: multiply;
 }
 
 /* Guilloche/Security patterned background simulation */

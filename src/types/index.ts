@@ -79,6 +79,7 @@ export interface FirearmRegistration {
 
 export interface SystemBranding {
   policeLogo: string;
+  watermarkLogo?: string;
   bgrsFlag: string;
   ethiopiaFlag: string;
   officialStampSeal: string;

@@ -122,6 +122,83 @@ export const DEFAULT_POLICE_LOGO = `data:image/svg+xml;utf8,` + encodeURICompone
 </svg>
 `);
 
+// High-fidelity Watermark Version with Pure White / Transparent Background
+// Designed specifically for security watermarks on certificates and ID cards without any dark square or shadow
+export const DEFAULT_POLICE_WATERMARK = `data:image/svg+xml;utf8,` + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <radialGradient id="wmBadgeGold" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Outer Star Rays / Police Sunburst Badge in Golden Amber -->
+  <g>
+    <path d="M250,15 L285,75 L355,50 L365,125 L435,130 L415,205 L480,235 L435,295 L475,355 L405,385 L415,460 L345,455 L320,520 L250,480 L180,520 L155,455 L85,460 L95,385 L25,355 L65,295 L20,235 L85,205 L65,130 L135,125 L145,50 L215,75 Z" 
+          fill="url(#wmBadgeGold)" stroke="#B45309" stroke-width="3" opacity="0.95"/>
+  </g>
+
+  <!-- Outer Ring with Pure White Background & Crisp Golden Border (No dark background!) -->
+  <circle cx="250" cy="250" r="185" fill="#FFFFFF" stroke="#D97706" stroke-width="8"/>
+  <circle cx="250" cy="250" r="172" fill="none" stroke="#B45309" stroke-width="2.5" stroke-dasharray="6,4"/>
+
+  <!-- Inner Police Shield with Pure White Background & Golden Border -->
+  <path d="M250,115 C330,115 365,145 365,225 C365,335 250,385 250,385 C250,385 135,335 135,225 C135,145 170,115 250,115 Z" 
+        fill="#FFFFFF" stroke="#D97706" stroke-width="5"/>
+
+  <!-- Scales of Justice / Balance & Crossed Swords in Sharp Gold -->
+  <line x1="180" y1="320" x2="320" y2="180" stroke="#D97706" stroke-width="6" stroke-linecap="round"/>
+  <line x1="320" y1="320" x2="180" y2="180" stroke="#D97706" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="180" cy="320" r="8" fill="#B45309"/>
+  <circle cx="320" cy="320" r="8" fill="#B45309"/>
+  <line x1="170" y1="305" x2="195" y2="330" stroke="#D97706" stroke-width="6"/>
+  <line x1="330" y1="305" x2="305" y2="330" stroke="#D97706" stroke-width="6"/>
+
+  <!-- Center Balance Beam -->
+  <line x1="250" y1="160" x2="250" y2="310" stroke="#B45309" stroke-width="5"/>
+  <circle cx="250" cy="155" r="9" fill="#D97706"/>
+  <line x1="195" y1="195" x2="305" y2="195" stroke="#B45309" stroke-width="5"/>
+  
+  <!-- Left Pan -->
+  <line x1="195" y1="195" x2="180" y2="245" stroke="#D97706" stroke-width="3"/>
+  <line x1="195" y1="195" x2="210" y2="245" stroke="#D97706" stroke-width="3"/>
+  <path d="M175,245 Q195,260 215,245 Z" fill="#F59E0B" stroke="#B45309" stroke-width="2"/>
+
+  <!-- Right Pan -->
+  <line x1="305" y1="195" x2="290" y2="245" stroke="#D97706" stroke-width="3"/>
+  <line x1="305" y1="195" x2="320" y2="245" stroke="#D97706" stroke-width="3"/>
+  <path d="M285,245 Q305,260 325,245 Z" fill="#F59E0B" stroke="#B45309" stroke-width="2"/>
+
+  <!-- Central Star of Integrity -->
+  <polygon points="250,225 257,243 276,243 261,254 266,272 250,261 234,272 239,254 224,243 243,243" fill="#D97706"/>
+
+  <!-- Circular Amharic Text on Shield Arch -->
+  <path id="wmTextTop" d="M 110,250 A 140,140 0 1,1 390,250" fill="none" stroke="none"/>
+  <text font-family="'Noto Sans Ethiopic', sans-serif" font-size="20" font-weight="900" fill="#B45309" letter-spacing="3">
+    <textPath href="#wmTextTop" startOffset="50%" text-anchor="middle">
+      የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን
+    </textPath>
+  </text>
+
+  <!-- Bottom Arch English & Insignia -->
+  <path id="wmTextBottom" d="M 390,250 A 140,140 0 0,1 110,250" fill="none" stroke="none"/>
+  <text font-family="'Noto Sans Ethiopic', sans-serif" font-size="16" font-weight="900" fill="#D97706" letter-spacing="4">
+    <textPath href="#wmTextBottom" startOffset="50%" text-anchor="middle">
+      BGRS POLICE COMMISSION
+    </textPath>
+  </text>
+
+  <!-- Small Five Stars on Lower Arch -->
+  <g fill="#D97706">
+    <polygon points="250,420 253,427 260,427 254,432 256,439 250,435 244,439 246,432 240,427 247,427"/>
+    <polygon points="220,415 223,422 230,422 224,427 226,434 220,430 214,434 216,427 210,422 217,422"/>
+    <polygon points="280,415 283,422 290,422 284,427 286,434 280,430 274,434 276,427 270,422 277,422"/>
+  </g>
+</svg>
+`);
+
 // Official Police Round Stamp Seal SVG Data URL
 export const DEFAULT_OFFICIAL_STAMP = `data:image/svg+xml;utf8,` + encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="100%" height="100%">
