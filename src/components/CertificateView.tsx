@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { FirearmRegistration, SystemBranding } from '../types/index.ts';
-import { Printer, Lock, ArrowLeft, User } from 'lucide-react';
+import { FirearmLifecycleModal } from './FirearmLifecycleModal.tsx';
+import { Printer, Lock, ArrowLeft, User, ArrowRightLeft, Archive } from 'lucide-react';
 
 interface CertificateViewProps {
   registration: FirearmRegistration;
@@ -17,8 +18,10 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   showActions = true,
 }) => {
   const [certQrUrl, setCertQrUrl] = useState<string>('');
+  const [showLifecycleModal, setShowLifecycleModal] = useState<boolean>(false);
   const isApproved = registration.status === 'የጸደቀ';
   const isExpired = new Date(registration.expiryDate) < new Date();
+  const isSurrendered = registration.status === 'ገቢ የተደረገ' || registration.isSurrendered;
 
   // Verification URL that links directly to the public verification portal
   const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${encodeURIComponent(
@@ -77,6 +80,21 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Firearm Lifecycle Button */}
+            <button
+              onClick={() => setShowLifecycleModal(true)}
+              title="መሳሪያ መቀየር፣ ገቢ ማድረግ፣ ጥይትና ካርት መጨመር፣ ወይም ሌላ ማውጣት (መታወቂያ ቁጥሩ እንዳለ ሆኖ)"
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600/25 border border-indigo-500/40 px-3.5 py-2 text-xs font-bold text-indigo-300 transition hover:bg-indigo-600/40 cursor-pointer shadow-sm"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-400" />
+              <span>ቅየራ / ገቢ / ጥይት</span>
+              {registration.lifecycleHistory && registration.lifecycleHistory.length > 0 && (
+                <span className="rounded-full bg-indigo-500/50 px-1 text-[9px] font-mono text-indigo-100">
+                  {registration.lifecycleHistory.length}
+                </span>
+              )}
+            </button>
+
             {!isApproved && (
               <span className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-300 border border-amber-500/40">
                 <Lock className="h-3.5 w-3.5" /> በሃላፊው እስኪጸድቅ ፕሪንት አይደረግም
@@ -139,6 +157,20 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
               </span>
               <p className="mt-0.5 text-[10px] font-bold text-amber-900">
                 ማረጋገጫ ሳይሰጥ ህጋዊ አገልግሎት አይሰጥም • ፕሪንት ማድረግ የተከለከለ ነው
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Surrendered Watermark Notice */}
+        {isSurrendered && (
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rotate-[-20deg]">
+            <div className="border-4 border-dashed border-rose-800/90 bg-rose-500/20 px-10 py-3.5 rounded-2xl text-center shadow-2xl backdrop-blur-[1px]">
+              <span className="text-xl font-black text-rose-950 tracking-wider font-serif">
+                ይህ መሳሪያ በፖሊስ ግምጃ ቤት ገቢ ተደርጓል (Surrendered to Custody)
+              </span>
+              <p className="mt-1 text-[11px] font-bold text-rose-900">
+                {registration.surrenderReason ? `ምክንያት፡ ${registration.surrenderReason}` : 'በፖሊስ ግምጃ ቤት ገቢ ተደርጎ ተቀምጧል'}
               </p>
             </div>
           </div>
@@ -527,6 +559,14 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Firearm Lifecycle Management Modal */}
+      {showLifecycleModal && (
+        <FirearmLifecycleModal
+          registration={registration}
+          onClose={() => setShowLifecycleModal(false)}
+        />
+      )}
     </div>
   );
 };

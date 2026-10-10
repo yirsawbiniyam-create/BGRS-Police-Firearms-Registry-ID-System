@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSystem } from '../context/SystemContext.tsx';
 import { FirearmRegistration } from '../types/index.ts';
+import { FirearmLifecycleModal } from './FirearmLifecycleModal.tsx';
 import { 
   Search, 
   Filter, 
@@ -16,7 +17,10 @@ import {
   Lock, 
   RefreshCw,
   SlidersHorizontal,
-  ChevronRight
+  ChevronRight,
+  ArrowRightLeft,
+  Archive,
+  History
 } from 'lucide-react';
 
 interface FirearmsListProps {
@@ -29,10 +33,11 @@ export const FirearmsList: React.FC<FirearmsListProps> = ({
   onEditRecord,
 }) => {
   const { records, deleteRegistration, renewRegistration, user } = useSystem();
-  const [activeTab, setActiveTab] = useState<'all' | 'idCards' | 'certificates' | 'expired'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'idCards' | 'certificates' | 'surrendered' | 'expired'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterOwnership, setFilterOwnership] = useState('all');
+  const [selectedLifecycleRecord, setSelectedLifecycleRecord] = useState<FirearmRegistration | null>(null);
 
   const today = new Date();
 
@@ -56,6 +61,9 @@ export const FirearmsList: React.FC<FirearmsListProps> = ({
     if (filterOwnership !== 'all' && r.ownership !== filterOwnership) return false;
 
     // Tab filter
+    if (activeTab === 'surrendered') {
+      return r.status === 'ገቢ የተደረገ' || r.isSurrendered;
+    }
     if (activeTab === 'expired') {
       return new Date(r.expiryDate) < today;
     }
@@ -125,6 +133,17 @@ export const FirearmsList: React.FC<FirearmsListProps> = ({
           >
             <FileText className="h-3.5 w-3.5" />
             የምስክር ወረቀቶች ለብቻ
+          </button>
+          <button
+            onClick={() => setActiveTab('surrendered')}
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+              activeTab === 'surrendered'
+                ? 'bg-rose-600 text-white shadow'
+                : 'text-slate-400 hover:text-rose-400'
+            }`}
+          >
+            <Archive className="h-3.5 w-3.5" />
+            ገቢ የተደረጉ ({records.filter(r => r.status === 'ገቢ የተደረገ' || r.isSurrendered).length})
           </button>
           <button
             onClick={() => setActiveTab('expired')}
@@ -248,13 +267,19 @@ export const FirearmsList: React.FC<FirearmsListProps> = ({
                       {/* Status */}
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          !isApproved
+                          r.status === 'ገቢ የተደረገ' || r.isSurrendered
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                            : !isApproved
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                             : isExpired
                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                             : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                         }`}>
-                          {!isApproved ? (
+                          {r.status === 'ገቢ የተደረገ' || r.isSurrendered ? (
+                            <>
+                              <Archive className="h-3 w-3" /> ገቢ የተደረገ
+                            </>
+                          ) : !isApproved ? (
                             <>
                               <Clock className="h-3 w-3" /> በሂደት ላይ
                             </>
@@ -284,6 +309,21 @@ export const FirearmsList: React.FC<FirearmsListProps> = ({
                               አጽድቅ
                             </button>
                           )}
+
+                          {/* Firearm Lifecycle Management (Replace / Surrender / Ammo / Re-issue) */}
+                          <button
+                            onClick={() => setSelectedLifecycleRecord(r)}
+                            title="መሳሪያ መቀየር፣ ገቢ ማድረግ፣ ጥይትና ካርት መጨመር፣ ወይም ገቢ የሆነውን ሌላ ማውጣት (መታወቂያ ቁጥሩ እንዳለ ሆኖ)"
+                            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-bold transition border bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border-indigo-500/40 cursor-pointer shadow-sm"
+                          >
+                            <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-400" />
+                            <span>ቅየራ/ገቢ/ጥይት</span>
+                            {r.lifecycleHistory && r.lifecycleHistory.length > 0 && (
+                              <span className="rounded-full bg-indigo-500/50 px-1 text-[9px] font-mono text-indigo-100">
+                                {r.lifecycleHistory.length}
+                              </span>
+                            )}
+                          </button>
 
                           {/* View ATM ID Card */}
                           <button
@@ -359,6 +399,14 @@ export const FirearmsList: React.FC<FirearmsListProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Firearm Lifecycle Management Modal (Replace, Surrender, Ammo, Re-issue) */}
+      {selectedLifecycleRecord && (
+        <FirearmLifecycleModal
+          registration={selectedLifecycleRecord}
+          onClose={() => setSelectedLifecycleRecord(null)}
+        />
+      )}
     </div>
   );
 };

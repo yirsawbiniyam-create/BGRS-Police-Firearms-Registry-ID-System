@@ -24,9 +24,12 @@ import {
   updateDoc, 
   deleteDoc, 
   onSnapshot, 
+  getDoc,
   getDocs,
   writeBatch 
 } from 'firebase/firestore';
+import { idbGet, idbSet } from '../utils/indexedDbStorage.ts';
+import { compressImage } from '../utils/imageCompressor.ts';
 
 interface SystemContextType {
   user: AuthUser | null;
@@ -35,6 +38,8 @@ interface SystemContextType {
   records: FirearmRegistration[];
   branding: SystemBranding;
   firestoreStatus: 'synced' | 'syncing' | 'offline';
+  isRefreshing: boolean;
+  refreshFromFirestore: () => Promise<void>;
   updateBranding: (branding: Partial<SystemBranding>) => Promise<boolean>;
   resetBrandingToDefaults: () => Promise<boolean>;
   addRegistration: (formData: Omit<FirearmRegistration, 'id' | 'idCardNumber' | 'certNumber' | 'createdAt' | 'updatedAt' | 'status'>) => FirearmRegistration;
@@ -45,6 +50,10 @@ interface SystemContextType {
   suspendRegistration: (id: string, reason: string) => void;
   renewRegistration: (id: string) => void;
   sendWarningNotice: (id: string) => void;
+  surrenderFirearm: (id: string, reason: string, officerName: string, referenceLetterNo?: string, depotLocation?: string) => Promise<boolean>;
+  replaceFirearm: (id: string, newFirearmData: Partial<FirearmRegistration>, reason: string, officerName: string, referenceLetterNo?: string) => Promise<boolean>;
+  increaseAmmunition: (id: string, addBullets: number, addMagazines: number, reason: string, officerName: string, referenceLetterNo?: string) => Promise<boolean>;
+  reissueFirearm: (id: string, newFirearmData: Partial<FirearmRegistration>, reason: string, officerName: string, referenceLetterNo?: string) => Promise<boolean>;
   getNextIdCardNumber: () => string;
   getNextCertNumber: () => string;
 }
@@ -279,6 +288,35 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Firestore Connection & Sync Status
   const [firestoreStatus, setFirestoreStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Fast Startup Hydration: Read unlimited-size IndexedDB cache instantly on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const [cachedRecords, cachedBranding] = await Promise.all([
+          idbGet<FirearmRegistration[]>('firearms_records'),
+          idbGet<SystemBranding>('system_branding'),
+        ]);
+
+        if (isMounted) {
+          if (cachedRecords && Array.isArray(cachedRecords) && cachedRecords.length > 0) {
+            setRecords(cachedRecords);
+          }
+          if (cachedBranding) {
+            setBranding((prev) => ({ ...prev, ...cachedBranding }));
+          }
+        }
+      } catch (err) {
+        console.warn('IndexedDB initial hydration notice:', err);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Firestore Real-Time Listener for System Branding (Logos, Flags, Seals, Signatures)
   useEffect(() => {
@@ -287,19 +325,56 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const brandingDocRef = doc(db, 'system_config', 'branding');
       unsubscribeBranding = onSnapshot(
         brandingDocRef,
-        (docSnap) => {
+        async (docSnap) => {
+          let mergedBranding: Partial<SystemBranding> = {};
+
           if (docSnap.exists()) {
-            const remoteData = docSnap.data() as Partial<SystemBranding>;
-            setBranding((prev) => ({
-              ...prev,
-              ...remoteData,
-            }));
-            // Cache locally
-            localStorage.setItem(
-              STORAGE_KEYS.BRANDING,
-              JSON.stringify({ ...DEFAULT_BRANDING, ...remoteData })
+            mergedBranding = { ...docSnap.data() as Partial<SystemBranding> };
+          }
+
+          // Check individual asset sub-documents to guarantee no 1MB limit blockage
+          try {
+            const assetKeys: Array<{ docId: string; field: keyof SystemBranding }> = [
+              { docId: 'asset_policeLogo', field: 'policeLogo' },
+              { docId: 'asset_watermarkLogo', field: 'watermarkLogo' },
+              { docId: 'asset_bgrsFlag', field: 'bgrsFlag' },
+              { docId: 'asset_ethiopiaFlag', field: 'ethiopiaFlag' },
+              { docId: 'asset_officialStampSeal', field: 'officialStampSeal' },
+              { docId: 'asset_approverSig', field: 'defaultApproverSignature' },
+              { docId: 'asset_registrarSig', field: 'defaultRegistrarSignature' },
+            ];
+
+            const assetDocs = await Promise.all(
+              assetKeys.map((k) => getDoc(doc(db, 'system_config', k.docId)).catch(() => null))
             );
-          } else {
+
+            assetDocs.forEach((aSnap, idx) => {
+              if (aSnap && aSnap.exists()) {
+                const val = aSnap.data()?.value;
+                if (val && typeof val === 'string') {
+                  const fieldKey = assetKeys[idx].field;
+                  (mergedBranding as any)[fieldKey] = val;
+                }
+              }
+            });
+          } catch (e) {
+            console.warn('Asset sub-documents fetch notice:', e);
+          }
+
+          if (Object.keys(mergedBranding).length > 0) {
+            setBranding((prev) => {
+              const updated = {
+                ...prev,
+                ...mergedBranding,
+                watermarkLogo: mergedBranding.watermarkLogo || prev.watermarkLogo || DEFAULT_POLICE_WATERMARK,
+              };
+              idbSet('system_branding', updated);
+              try {
+                localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(updated));
+              } catch {}
+              return updated;
+            });
+          } else if (!docSnap.exists()) {
             // First time initialization in cloud
             setDoc(brandingDocRef, DEFAULT_BRANDING).catch((e) => {
               console.warn('Initial branding cloud seed notice:', e);
@@ -326,7 +401,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const recordsCol = collection(db, 'firearms_records');
       unsubscribe = onSnapshot(
         recordsCol,
-        (snapshot) => {
+        async (snapshot) => {
           if (!snapshot.empty) {
             const remoteRecords: FirearmRegistration[] = [];
             snapshot.forEach((docSnap) => {
@@ -337,16 +412,33 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
             setRecords(remoteRecords);
+            idbSet('firearms_records', remoteRecords);
+            try {
+              localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(remoteRecords));
+            } catch {}
             setFirestoreStatus('synced');
           } else {
-            // First time Firestore initialization: seed initial records
-            INITIAL_SEED_RECORDS.forEach(async (seedRec) => {
-              try {
-                await setDoc(doc(db, 'firearms_records', seedRec.id), seedRec);
-              } catch (err) {
-                console.warn('Seed write warning', err);
+            // If cloud is empty, check if we have records in local state or IndexedDB first!
+            const localCached = await idbGet<FirearmRegistration[]>('firearms_records');
+            if (localCached && localCached.length > 0) {
+              // Upload existing local records to cloud so they are never lost!
+              for (const rec of localCached) {
+                try {
+                  await setDoc(doc(db, 'firearms_records', rec.id), rec);
+                } catch (e) {
+                  console.warn('Local-to-cloud sync warning:', e);
+                }
               }
-            });
+            } else {
+              // First time Firestore initialization: seed initial records
+              INITIAL_SEED_RECORDS.forEach(async (seedRec) => {
+                try {
+                  await setDoc(doc(db, 'firearms_records', seedRec.id), seedRec);
+                } catch (err) {
+                  console.warn('Seed write warning', err);
+                }
+              });
+            }
             setFirestoreStatus('synced');
           }
         },
@@ -367,20 +459,18 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Save records locally as instant fallback
   useEffect(() => {
+    idbSet('firearms_records', records);
     try {
       localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
-    } catch (e) {
-      console.error('Failed to save records to localStorage', e);
-    }
+    } catch {}
   }, [records]);
 
   // Save branding on modification
   useEffect(() => {
+    idbSet('system_branding', branding);
     try {
       localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(branding));
-    } catch (e) {
-      console.error('Failed to save branding to localStorage', e);
-    }
+    } catch {}
   }, [branding]);
 
   // Save session
@@ -478,8 +568,35 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     const updated = { ...branding, ...finalUpdate };
     setBranding(updated);
+
+    // Save to IndexedDB immediately (instant, zero quota limit)
+    await idbSet('system_branding', updated);
     try {
       localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(updated));
+    } catch {}
+
+    // Save to Firestore with individual asset document protection to guarantee no 1MB limit blockage
+    try {
+      const assetMap: Array<{ key: keyof SystemBranding; docId: string }> = [
+        { key: 'policeLogo', docId: 'asset_policeLogo' },
+        { key: 'watermarkLogo', docId: 'asset_watermarkLogo' },
+        { key: 'bgrsFlag', docId: 'asset_bgrsFlag' },
+        { key: 'ethiopiaFlag', docId: 'asset_ethiopiaFlag' },
+        { key: 'officialStampSeal', docId: 'asset_officialStampSeal' },
+        { key: 'defaultApproverSignature', docId: 'asset_approverSig' },
+        { key: 'defaultRegistrarSignature', docId: 'asset_registrarSig' },
+      ];
+
+      for (const item of assetMap) {
+        if (finalUpdate[item.key]) {
+          await setDoc(
+            doc(db, 'system_config', item.docId),
+            { value: finalUpdate[item.key] },
+            { merge: true }
+          ).catch((e) => console.warn(`Sub-asset ${item.docId} write warning:`, e));
+        }
+      }
+
       await setDoc(doc(db, 'system_config', 'branding'), updated, { merge: true });
       setFirestoreStatus('synced');
       return true;
@@ -491,6 +608,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const resetBrandingToDefaults = async (): Promise<boolean> => {
     setBranding(DEFAULT_BRANDING);
+    await idbSet('system_branding', DEFAULT_BRANDING);
     try {
       localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(DEFAULT_BRANDING));
       await setDoc(doc(db, 'system_config', 'branding'), DEFAULT_BRANDING);
@@ -499,6 +617,49 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (err) {
       console.warn('Firestore branding reset notice:', err);
       return false;
+    }
+  };
+
+  const refreshFromFirestore = async (): Promise<void> => {
+    setIsRefreshing(true);
+    setFirestoreStatus('syncing');
+    try {
+      const recordsCol = collection(db, 'firearms_records');
+      const snapshot = await getDocs(recordsCol);
+      if (!snapshot.empty) {
+        const remoteRecords: FirearmRegistration[] = [];
+        snapshot.forEach((docSnap) => {
+          remoteRecords.push(docSnap.data() as FirearmRegistration);
+        });
+        remoteRecords.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setRecords(remoteRecords);
+        await idbSet('firearms_records', remoteRecords);
+        try {
+          localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(remoteRecords));
+        } catch {}
+      }
+
+      const brandingSnap = await getDoc(doc(db, 'system_config', 'branding'));
+      if (brandingSnap.exists()) {
+        const bData = brandingSnap.data() as Partial<SystemBranding>;
+        setBranding((prev) => {
+          const updated = {
+            ...prev,
+            ...bData,
+            watermarkLogo: bData.watermarkLogo || prev.watermarkLogo || DEFAULT_POLICE_WATERMARK,
+          };
+          idbSet('system_branding', updated);
+          return updated;
+        });
+      }
+      setFirestoreStatus('synced');
+    } catch (err) {
+      console.warn('Manual refresh notice:', err);
+      setFirestoreStatus('offline');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -519,9 +680,16 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updatedAt: now,
     };
 
-    setRecords(prev => [newRecord, ...prev]);
+    setRecords((prev) => {
+      const updated = [newRecord, ...prev];
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
-    // Persist to Firestore
+    // Persist to Firestore with instant local state maintained
     try {
       setDoc(doc(db, 'firearms_records', newRecord.id), newRecord).catch((e) => {
         console.warn('Firestore write notice (local state maintained):', e);
@@ -695,6 +863,299 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch {}
   };
 
+  // 1. መሣሪያ ገቢ ማድረግ (Surrender / Return Firearm to Depot/Custody)
+  const surrenderFirearm = async (
+    id: string,
+    reason: string,
+    officerName: string,
+    referenceLetterNo?: string,
+    depotLocation?: string
+  ): Promise<boolean> => {
+    const target = records.find(r => r.id === id);
+    if (!target) return false;
+
+    const now = new Date().toISOString();
+    const dateStr = now.split('T')[0];
+    const defaultDepot = depotLocation || 'የቤ/ጉ/ክ/ፖ/ኮ ዋና የጦር መሳሪያ ግምጃ ቤት (አሶሳ)';
+
+    const event = {
+      id: `evt-${Date.now()}`,
+      actionType: 'WEAPON_SURRENDER' as const,
+      actionTitle: 'መሳሪያ ገቢ ተደረገ (Surrendered / Returned)',
+      date: dateStr,
+      timestamp: now,
+      reason,
+      officerName: officerName || user?.fullName || 'የፖሊስ ኃላፊ',
+      referenceLetterNo: referenceLetterNo || '',
+      depotLocation: defaultDepot,
+      previousFirearm: {
+        firearmType: target.firearmType,
+        serialNumber: target.serialNumber,
+        weaponCode: target.weaponCode,
+        bulletCount: target.bulletCount,
+        magazineCount: target.magazineCount,
+        mechanism: target.mechanism,
+        countryOfOrigin: target.countryOfOrigin,
+        manufactureYear: target.manufactureYear,
+      },
+      notes: `መሳሪያው በ${officerName || 'ኃላፊ'} ተረክቦ ወደ "${defaultDepot}" ገቢ ተደርጓል፡፡ መታወቂያ ቁጥር ${target.idCardNumber} ለተመዝጋቢው እንደተጠበቀ ይቆያል፡፡`,
+    };
+
+    const updates: Partial<FirearmRegistration> = {
+      status: 'ገቢ የተደረገ',
+      isSurrendered: true,
+      surrenderedAt: now,
+      surrenderReason: reason,
+      surrenderOfficer: officerName,
+      surrenderReceiptNo: referenceLetterNo || '',
+      depotLocation: defaultDepot,
+      lifecycleHistory: [event, ...(target.lifecycleHistory || [])],
+      updatedAt: now,
+    };
+
+    setRecords(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, ...updates } : item);
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      await updateDoc(doc(db, 'firearms_records', id), updates);
+    } catch (e) {
+      console.warn('Firestore surrender write notice:', e);
+    }
+    return true;
+  };
+
+  // 2. መሣሪያ መቀየር (Replace / Exchange Firearm)
+  // Keeps existing ID card number strictly preserved (መታወቂያ ቁጥሩ እንዳለ ሆኖ!)
+  const replaceFirearm = async (
+    id: string,
+    newFirearmData: Partial<FirearmRegistration>,
+    reason: string,
+    officerName: string,
+    referenceLetterNo?: string
+  ): Promise<boolean> => {
+    const target = records.find(r => r.id === id);
+    if (!target) return false;
+
+    const now = new Date().toISOString();
+    const dateStr = now.split('T')[0];
+
+    const event = {
+      id: `evt-${Date.now()}`,
+      actionType: 'WEAPON_REPLACE' as const,
+      actionTitle: 'መሳሪያ ተቀይሯል (Firearm Replaced)',
+      date: dateStr,
+      timestamp: now,
+      reason,
+      officerName: officerName || user?.fullName || 'የፖሊስ ኃላፊ',
+      referenceLetterNo: referenceLetterNo || '',
+      previousFirearm: {
+        firearmType: target.firearmType,
+        serialNumber: target.serialNumber,
+        weaponCode: target.weaponCode,
+        bulletCount: target.bulletCount,
+        magazineCount: target.magazineCount,
+        mechanism: target.mechanism,
+        countryOfOrigin: target.countryOfOrigin,
+        manufactureYear: target.manufactureYear,
+      },
+      newFirearm: {
+        firearmType: newFirearmData.firearmType || target.firearmType,
+        serialNumber: newFirearmData.serialNumber || target.serialNumber,
+        weaponCode: newFirearmData.weaponCode || target.weaponCode,
+        bulletCount: newFirearmData.bulletCount ?? target.bulletCount,
+        magazineCount: newFirearmData.magazineCount ?? target.magazineCount,
+        mechanism: newFirearmData.mechanism || target.mechanism,
+        countryOfOrigin: newFirearmData.countryOfOrigin || target.countryOfOrigin,
+        manufactureYear: newFirearmData.manufactureYear || target.manufactureYear,
+      },
+      notes: `የነበረው መሳሪያ (${target.firearmType} - ንምራ ${target.serialNumber}) ተቀይሮ አዲስ መሳሪያ (${newFirearmData.firearmType || target.firearmType} - ንምራ ${newFirearmData.serialNumber || target.serialNumber}) ተመዝግቧል፡፡ መታወቂያ ቁጥር፡ ${target.idCardNumber} ሳይቀየር እንዳለ ቀጥሏል፡፡`,
+    };
+
+    const updates: Partial<FirearmRegistration> = {
+      firearmType: newFirearmData.firearmType || target.firearmType,
+      serialNumber: newFirearmData.serialNumber || target.serialNumber,
+      weaponCode: newFirearmData.weaponCode || target.weaponCode,
+      bulletCount: newFirearmData.bulletCount ?? target.bulletCount,
+      magazineCount: newFirearmData.magazineCount ?? target.magazineCount,
+      ownership: newFirearmData.ownership || target.ownership,
+      mechanism: newFirearmData.mechanism || target.mechanism,
+      countryOfOrigin: newFirearmData.countryOfOrigin || target.countryOfOrigin,
+      manufactureYear: newFirearmData.manufactureYear || target.manufactureYear,
+      isSurrendered: false, // Active in hand
+      status: target.status === 'ገቢ የተደረገ' ? 'የጸደቀ' : target.status,
+      lastReplacedAt: now,
+      lifecycleHistory: [event, ...(target.lifecycleHistory || [])],
+      updatedAt: now,
+    };
+
+    setRecords(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, ...updates } : item);
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      await updateDoc(doc(db, 'firearms_records', id), updates);
+    } catch (e) {
+      console.warn('Firestore replace write notice:', e);
+    }
+    return true;
+  };
+
+  // 3. ጥይትና ካርት መጨመር (Add Bullets & Magazines / Quota Increase)
+  const increaseAmmunition = async (
+    id: string,
+    addBullets: number,
+    addMagazines: number,
+    reason: string,
+    officerName: string,
+    referenceLetterNo?: string
+  ): Promise<boolean> => {
+    const target = records.find(r => r.id === id);
+    if (!target) return false;
+
+    const now = new Date().toISOString();
+    const dateStr = now.split('T')[0];
+    const prevBullets = target.bulletCount || 0;
+    const prevMags = target.magazineCount || 0;
+    const newTotalBullets = prevBullets + Number(addBullets);
+    const newTotalMagazines = prevMags + Number(addMagazines);
+
+    const event = {
+      id: `evt-${Date.now()}`,
+      actionType: 'AMMO_INCREASE' as const,
+      actionTitle: 'ጥይት እና ካርት ተጨምሯል (Ammunition Quota Increase)',
+      date: dateStr,
+      timestamp: now,
+      reason,
+      officerName: officerName || user?.fullName || 'የፖሊስ ኃላፊ',
+      referenceLetterNo: referenceLetterNo || '',
+      ammoAdjustment: {
+        addedBullets: Number(addBullets),
+        addedMagazines: Number(addMagazines),
+        previousBullets: prevBullets,
+        newTotalBullets,
+        previousMagazines: prevMags,
+        newTotalMagazines,
+      },
+      notes: `ተጨማሪ +${addBullets} ጥይት እና +${addMagazines} ካርት ተፈቅዶ አጠቃላይ ብዛት ወደ ${newTotalBullets} ጥይት እና ${newTotalMagazines} ካርት ከፍ ብሏል፡፡`,
+    };
+
+    const updates: Partial<FirearmRegistration> = {
+      bulletCount: newTotalBullets,
+      magazineCount: newTotalMagazines,
+      lastAmmoIncreaseAt: now,
+      lifecycleHistory: [event, ...(target.lifecycleHistory || [])],
+      updatedAt: now,
+    };
+
+    setRecords(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, ...updates } : item);
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      await updateDoc(doc(db, 'firearms_records', id), updates);
+    } catch (e) {
+      console.warn('Firestore ammo write notice:', e);
+    }
+    return true;
+  };
+
+  // 4. ገቢ አድርጎ ሌላ ማውጣት / ማደስ (Re-issue New Weapon after Surrender)
+  // Preserving previous ID card number (በድሮው መታወቂያ ቁጥር እንዳለ ሆኖ ሌላ ማውጣት/ማስተካከል)
+  const reissueFirearm = async (
+    id: string,
+    newFirearmData: Partial<FirearmRegistration>,
+    reason: string,
+    officerName: string,
+    referenceLetterNo?: string
+  ): Promise<boolean> => {
+    const target = records.find(r => r.id === id);
+    if (!target) return false;
+
+    const now = new Date().toISOString();
+    const dateStr = now.split('T')[0];
+
+    const event = {
+      id: `evt-${Date.now()}`,
+      actionType: 'WEAPON_REISSUE' as const,
+      actionTitle: 'ገቢ የተደረገው ተነስቶ ሌላ መሳሪያ ወጥቷል (Re-issued After Surrender)',
+      date: dateStr,
+      timestamp: now,
+      reason,
+      officerName: officerName || user?.fullName || 'የፖሊስ ኃላፊ',
+      referenceLetterNo: referenceLetterNo || '',
+      previousFirearm: {
+        firearmType: target.firearmType,
+        serialNumber: target.serialNumber,
+        weaponCode: target.weaponCode,
+        bulletCount: target.bulletCount,
+        magazineCount: target.magazineCount,
+        mechanism: target.mechanism,
+        countryOfOrigin: target.countryOfOrigin,
+        manufactureYear: target.manufactureYear,
+      },
+      newFirearm: {
+        firearmType: newFirearmData.firearmType || target.firearmType,
+        serialNumber: newFirearmData.serialNumber || target.serialNumber,
+        weaponCode: newFirearmData.weaponCode || target.weaponCode,
+        bulletCount: newFirearmData.bulletCount ?? target.bulletCount,
+        magazineCount: newFirearmData.magazineCount ?? target.magazineCount,
+        mechanism: newFirearmData.mechanism || target.mechanism,
+        countryOfOrigin: newFirearmData.countryOfOrigin || target.countryOfOrigin,
+        manufactureYear: newFirearmData.manufactureYear || target.manufactureYear,
+      },
+      notes: `በድሮው መታወቂያ ቁጥር (${target.idCardNumber}) ስር ገቢ ተደርጎ የቆየው ሰነድ ታድሶ አዲስ መሳሪያ ወጥቷል፡፡`,
+    };
+
+    const updates: Partial<FirearmRegistration> = {
+      firearmType: newFirearmData.firearmType || target.firearmType,
+      serialNumber: newFirearmData.serialNumber || target.serialNumber,
+      weaponCode: newFirearmData.weaponCode || target.weaponCode,
+      bulletCount: newFirearmData.bulletCount ?? target.bulletCount,
+      magazineCount: newFirearmData.magazineCount ?? target.magazineCount,
+      ownership: newFirearmData.ownership || target.ownership,
+      mechanism: newFirearmData.mechanism || target.mechanism,
+      countryOfOrigin: newFirearmData.countryOfOrigin || target.countryOfOrigin,
+      manufactureYear: newFirearmData.manufactureYear || target.manufactureYear,
+      isSurrendered: false, // Reactivated!
+      status: 'የጸደቀ',
+      reissuedAt: now,
+      lifecycleHistory: [event, ...(target.lifecycleHistory || [])],
+      updatedAt: now,
+    };
+
+    setRecords(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, ...updates } : item);
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      await updateDoc(doc(db, 'firearms_records', id), updates);
+    } catch (e) {
+      console.warn('Firestore reissue write notice:', e);
+    }
+    return true;
+  };
+
   return (
     <SystemContext.Provider
       value={{
@@ -704,6 +1165,8 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         records,
         branding,
         firestoreStatus,
+        isRefreshing,
+        refreshFromFirestore,
         updateBranding,
         resetBrandingToDefaults,
         addRegistration,
@@ -714,6 +1177,10 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         suspendRegistration,
         renewRegistration,
         sendWarningNotice,
+        surrenderFirearm,
+        replaceFirearm,
+        increaseAmmunition,
+        reissueFirearm,
         getNextIdCardNumber,
         getNextCertNumber,
       }}

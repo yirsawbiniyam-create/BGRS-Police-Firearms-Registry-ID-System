@@ -42,6 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const approvedCount = records.filter(r => r.status === 'የጸደቀ').length;
   const pendingCount = records.filter(r => r.status === 'በሂደት ላይ').length;
   const suspendedCount = records.filter(r => r.status === 'የታገደ').length;
+  const surrenderedCount = records.filter(r => r.status === 'ገቢ የተደረገ' || r.isSurrendered).length;
 
   // Total bullets and magazines
   const totalBullets = records.reduce((sum, r) => sum + (Number(r.bulletCount) || 0), 0);
@@ -170,9 +171,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <Shield className="h-5 w-5 text-amber-400" />
           </div>
           <div className="text-3xl font-black text-white font-mono">{totalFirearms}</div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800 pt-2">
+          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-800 pt-2 gap-1">
             <span>የጸደቁ፡ <b className="text-emerald-400">{approvedCount}</b></span>
-            <span>በሂደት ላይ፡ <b className="text-amber-400">{pendingCount}</b></span>
+            <span>ገቢ፡ <b className="text-rose-400">{surrenderedCount}</b></span>
+            <span>በሂደት፡ <b className="text-amber-400">{pendingCount}</b></span>
           </div>
         </div>
 

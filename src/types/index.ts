@@ -19,7 +19,57 @@ export type RegistrationStatus =
   | 'በሂደት ላይ'    // Pending Approval
   | 'የጸደቀ'         // Approved
   | 'የተከለከለ'       // Rejected
-  | 'የታገደ';        // Suspended / Revoked
+  | 'የታገደ'        // Suspended / Revoked
+  | 'ገቢ የተደረገ';   // Surrendered / Returned to Custody
+
+export type LifecycleActionType = 
+  | 'WEAPON_SURRENDER'      // መሳሪያ ገቢ ማድረግ (Surrender / Return to Depot)
+  | 'WEAPON_REPLACE'        // መሳሪያ መቀየር (Replace / Exchange Firearm)
+  | 'AMMO_INCREASE'         // ጥይት እና ካርት መጨመር (Increase Ammo & Magazines)
+  | 'WEAPON_REISSUE'        // ገቢ የተደረገውን ሌላ ማውጣት / ማደስ (Re-issue after surrender)
+  | 'RECORD_UPDATE';        // መረጃ ማስተካከል (General Update)
+
+export interface FirearmLifecycleEvent {
+  id: string;
+  actionType: LifecycleActionType;
+  actionTitle: string;            // e.g. "መሳሪያ ገቢ ተደርጓል", "መሳሪያ ተቀይሯል", "ጥይትና ካርት ተጨምሯል"
+  date: string;                   // Date of action (YYYY-MM-DD or Eth date)
+  timestamp: string;              // ISO timestamp
+  reason: string;                 // ምክንያት (Compulsory Reason/Justification)
+  officerName: string;            // የፈቀደው / የተረከበው ኃላፊ
+  referenceLetterNo?: string;     // የማመልከቻ / የደብዳቤ / የደረሰኝ ቁጥር
+  depotLocation?: string;         // መሳሪያው የተቀመጠበት ግምጃ ቤት
+  // Before & After snapshots
+  previousFirearm?: {
+    firearmType: string;
+    serialNumber: string;
+    weaponCode: string;
+    bulletCount: number;
+    magazineCount: number;
+    mechanism?: string;
+    countryOfOrigin?: string;
+    manufactureYear?: string;
+  };
+  newFirearm?: {
+    firearmType: string;
+    serialNumber: string;
+    weaponCode: string;
+    bulletCount: number;
+    magazineCount: number;
+    mechanism?: string;
+    countryOfOrigin?: string;
+    manufactureYear?: string;
+  };
+  ammoAdjustment?: {
+    addedBullets: number;
+    addedMagazines: number;
+    previousBullets: number;
+    newTotalBullets: number;
+    previousMagazines: number;
+    newTotalMagazines: number;
+  };
+  notes?: string;
+}
 
 export interface FirearmRegistration {
   id: string;
@@ -49,7 +99,7 @@ export interface FirearmRegistration {
   manufactureYear: string;         // ዓ/ም (የተሰራበት ዓ/ም)
   
   // Identification & Official Numbers
-  idCardNumber: string;            // e.g. ቤጌፖ-ጦመ-0001
+  idCardNumber: string;            // e.g. ቤጌፖ-ጦመ-0001 (Preserved across weapon changes)
   certNumber: string;              // e.g. 00001/ጦመ-2026
   
   // Registration & Validation Details
@@ -65,13 +115,27 @@ export interface FirearmRegistration {
   approverName: string;            // የሀላፊው ስም
   approverSignature: string;       // የሀላፊው ፊርማ
 
-  // Approval Lifecycle
+  // Approval & Lifecycle State
   status: RegistrationStatus;
   approvedAt?: string;
   approvedBy?: string;
   rejectionReason?: string;
   warningNoticeSent?: boolean;
   notes?: string;
+
+  // Surrender & Reissue lifecycle details
+  isSurrendered?: boolean;
+  surrenderedAt?: string;
+  surrenderReason?: string;
+  surrenderOfficer?: string;
+  surrenderReceiptNo?: string;
+  depotLocation?: string;
+  reissuedAt?: string;
+  lastReplacedAt?: string;
+  lastAmmoIncreaseAt?: string;
+
+  // Audit trail of all weapon surrenders, swaps, ammo adjustments
+  lifecycleHistory?: FirearmLifecycleEvent[];
 
   createdAt: string;
   updatedAt: string;

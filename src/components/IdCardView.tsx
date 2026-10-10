@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
 import { FirearmRegistration, SystemBranding } from '../types/index.ts';
-import { Printer, ShieldCheck, AlertTriangle, Lock, Download, User, Scissors, Check, SlidersHorizontal, CreditCard } from 'lucide-react';
+import { FirearmLifecycleModal } from './FirearmLifecycleModal.tsx';
+import { Printer, ShieldCheck, AlertTriangle, Lock, Download, User, Scissors, Check, SlidersHorizontal, CreditCard, ArrowRightLeft, Archive } from 'lucide-react';
 
 interface IdCardViewProps {
   registration: FirearmRegistration;
@@ -24,12 +25,14 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
   const [printLayout, setPrintLayout] = useState<PrintLayoutMode>('foldable');
   const [showCropMarks, setShowCropMarks] = useState<boolean>(true);
   const [screenZoom, setScreenZoom] = useState<'atm' | 'large'>('atm');
+  const [showLifecycleModal, setShowLifecycleModal] = useState<boolean>(false);
   const printContainerRef = useRef<HTMLDivElement>(null);
 
   // Check if expired: expiry date < today
   const isExpired = new Date(registration.expiryDate) < new Date();
   const isApproved = registration.status === 'የጸደቀ';
   const isSuspended = registration.status === 'የታገደ';
+  const isSurrendered = registration.status === 'ገቢ የተደረገ' || registration.isSurrendered;
 
   // Verification URL that will be encoded inside the QR Code
   const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${encodeURIComponent(
@@ -93,6 +96,20 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
             </span>
             <p className="text-[7.5px] font-bold text-amber-100">
               እስኪጸድቅ ድረስ ፕሪንት ማድረግ የተከለከለ ነው
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Surrendered watermark overlay */}
+      {isSurrendered && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rotate-[-15deg]">
+          <div className="border-2 border-rose-500 bg-rose-950/92 px-4 py-1.5 rounded-xl text-center shadow-2xl">
+            <span className="text-xs font-black text-rose-200 tracking-wider">
+              ይህ መሳሪያ ገቢ ተደርጓል (በግምጃ ቤት)
+            </span>
+            <p className="text-[7.5px] font-bold text-rose-300">
+              {registration.surrenderReason ? `ምክንያት፡ ${registration.surrenderReason}` : 'በፖሊስ ግምጃ ቤት ተረክቧል'}
             </p>
           </div>
         </div>
@@ -488,6 +505,21 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Lifecycle button */}
+              <button
+                onClick={() => setShowLifecycleModal(true)}
+                title="መሳሪያ መቀየር፣ ገቢ ማድረግ፣ ጥይትና ካርት መጨመር፣ ወይም ሌላ ማውጣት (መታወቂያ ቁጥሩ እንዳለ ሆኖ)"
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-600/25 border border-indigo-500/40 px-3.5 py-2 text-xs font-bold text-indigo-300 transition hover:bg-indigo-600/40 cursor-pointer shadow-sm"
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-400" />
+                <span>ቅየራ / ገቢ / ጥይት</span>
+                {registration.lifecycleHistory && registration.lifecycleHistory.length > 0 && (
+                  <span className="rounded-full bg-indigo-500/50 px-1 text-[9px] font-mono text-indigo-100">
+                    {registration.lifecycleHistory.length}
+                  </span>
+                )}
+              </button>
+
               {onEdit && (
                 <button
                   onClick={onEdit}
@@ -804,6 +836,14 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
         )}
 
       </div>
+
+      {/* Firearm Lifecycle Management Modal */}
+      {showLifecycleModal && (
+        <FirearmLifecycleModal
+          registration={registration}
+          onClose={() => setShowLifecycleModal(false)}
+        />
+      )}
     </div>
   );
 };

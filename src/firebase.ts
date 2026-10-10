@@ -1,5 +1,11 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  Firestore 
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 export const firebaseConfig = {
@@ -12,7 +18,23 @@ export const firebaseConfig = {
   measurementId: "G-RH806FH2HF"
 };
 
-// Initialize Firebase App
-export const app = initializeApp(firebaseConfig);
-export const db: Firestore = getFirestore(app);
+// Initialize Firebase App safely
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+// Initialize Firestore with IndexedDB persistent local cache
+// Enables instant sub-second retrieval of stored registrations, photos, logos, and flags
+let firestoreInstance: Firestore;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+} catch {
+  // Fallback if already initialized or private browsing restrictions
+  firestoreInstance = getFirestore(app);
+}
+
+export const db: Firestore = firestoreInstance;
 export const auth = getAuth(app);
+
