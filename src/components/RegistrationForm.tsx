@@ -35,11 +35,13 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     getNextIdCardNumber, 
     getNextCertNumber, 
     branding, 
-    user 
+    user,
+    records 
   } = useSystem();
 
   // Form Fields State
   const [fullName, setFullName] = useState(initialData?.fullName || '');
+  const [phoneNumber, setPhoneNumber] = useState(initialData?.phoneNumber || '');
   const [region, setRegion] = useState(initialData?.region || 'ቤኒሻንጉል ጉሙዝ');
   const [zone, setZone] = useState(initialData?.zone || 'አሶሳ ዞን');
   const [woreda, setWoreda] = useState(initialData?.woreda || 'አሶሳ ከተማ');
@@ -93,6 +95,20 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   const nextIdNum = initialData?.idCardNumber || getNextIdCardNumber();
   const nextCertNum = initialData?.certNumber || getNextCertNumber();
 
+  // Check duplicate serial number in existing records (Fraud prevention)
+  const trimmedSerial = serialNumber.trim().toLowerCase();
+  const duplicateMatch = trimmedSerial ? records.find(r => {
+    if (initialData && r.id === initialData.id) return false;
+    return r.serialNumber && r.serialNumber.trim().toLowerCase() === trimmedSerial;
+  }) : null;
+
+  const isDuplicateSurrendered = duplicateMatch 
+    ? (duplicateMatch.status === 'ገቢ የተደረገ' || duplicateMatch.isSurrendered)
+    : false;
+  
+  // If a duplicate is found and NOT surrendered, block registration!
+  const isDuplicateBlocked = !!duplicateMatch && !isDuplicateSurrendered;
+
   const handleDateChange = (newRegDate: string) => {
     setRegistrationDate(newRegDate);
     try {
@@ -116,9 +132,16 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       return;
     }
 
+    // Fraud prevention duplicate check: Cannot register an already actively licensed firearm
+    if (isDuplicateBlocked && duplicateMatch) {
+      alert(`⚠️ ጥብቅ ማስጠንቀቂያ፡ ይህ የጦር መሳሪያ (ንምራ ቁጥር፡ ${duplicateMatch.serialNumber}) ቀደም ሲል በ${duplicateMatch.fullName} ስም ተመዝግቦ ያለ በመሆኑ ድጋሚ በሌላ ሰው ማውጣት በጥብቅ የተከለከለ ነው! መሳሪያው በፖሊስ ግምጃ ቤት ገቢ እስካልተደረገ ድረስ አዲስ ፈቃድ አይሰጥም፡፡`);
+      return;
+    }
+
     if (initialData) {
       updateRegistration(initialData.id, {
         fullName,
+        phoneNumber,
         region,
         zone,
         woreda,
@@ -150,6 +173,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
       const updated = {
         ...initialData,
         fullName,
+        phoneNumber,
         region,
         zone,
         woreda,
@@ -182,6 +206,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     } else {
       const saved = addRegistration({
         fullName,
+        phoneNumber,
         region,
         zone,
         woreda,
@@ -305,6 +330,21 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="የአያት ስም ጨምሮ ሙሉ ስም"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>ስልክ ቁጥር (Phone No.) *</span>
+                  <span className="text-[10px] text-amber-400 font-semibold">የባለመሳሪያው</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="ምሳሌ፡ 0911223344"
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none"
                 />
               </div>
@@ -607,6 +647,127 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               />
             </div>
           </div>
+
+          {/* ============================================================== */}
+          {/* DUPLICATE SERIAL NUMBER DETECTED (FRAUD PREVENTION & HISTORY) */}
+          {/* ============================================================== */}
+          {duplicateMatch && (
+            <div className="mt-4">
+              {isDuplicateBlocked ? (
+                <div className="rounded-2xl border-2 border-red-500 bg-red-950/80 p-5 shadow-2xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-red-800 pb-3 gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-600 text-white font-black text-base shadow">
+                        ⚠️
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-black text-red-200">
+                          ጥብቅ ማስጠንቀቂያ፡ ይህ የጦር መሳሪያ ቀደም ሲል በሲስተሙ ውስጥ የተመዘገበ ነው!
+                        </h4>
+                        <p className="text-[11px] text-red-300">
+                          ንምራ ቁጥር፡ <span className="font-mono font-bold text-amber-300 bg-red-900/80 px-2 py-0.5 rounded">{duplicateMatch.serialNumber}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <span className="self-start sm:self-auto rounded-full bg-red-600 px-3 py-1 text-xs font-black text-white shadow">
+                      ድጋሚ ማውጣት የተከለከለ ነው (Blocked)
+                    </span>
+                  </div>
+
+                  <p className="mt-2.5 text-xs text-red-200 leading-relaxed font-semibold">
+                    ይህ መሳሪያ በሲስተሙ ውስጥ በሌላ ሰው እጅ በህጋዊ ፈቃድ ላይ የሚገኝ በመሆኑ ድጋሚ ፈቃድ ማውጣት በጥብቅ የተከለከለ ነው! መሳሪያው በፖሊስ ግምጃ ቤት ገቢ እስካልተደረገ ድረስ በሌላ ሰው ስም ሊመዘገብ አይችልም፡፡
+                  </p>
+
+                  {/* ቀደም ሲል በማን እንደመዘገበ ሙሉ ፋይል */}
+                  <div className="mt-3.5 rounded-xl border border-red-700/70 bg-slate-950/95 p-4 shadow-inner">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
+                      <span className="text-xs font-black text-amber-400">
+                        ቀደም ሲል የተመዘገበበት ሙሉ ፋይል (Original Registered Owner File)
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-400">
+                        የመዝገብ መለያ: {duplicateMatch.id}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 items-start">
+                      {/* Owner Photo */}
+                      <div className="flex flex-col items-center shrink-0">
+                        <div className="h-28 w-22 overflow-hidden rounded-lg border-2 border-red-500 bg-slate-900 p-0.5 shadow">
+                          {duplicateMatch.photoUrl ? (
+                            <img src={duplicateMatch.photoUrl} alt={duplicateMatch.fullName} className="h-full w-full object-cover rounded" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-xs text-slate-500">ፎቶ የለም</div>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-400 mt-1">የባለመሳሪያው ፎቶ</span>
+                      </div>
+
+                      {/* Details Grid */}
+                      <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">1. የባለመሳሪያው ሙሉ ስም፡</span>
+                          <span className="font-black text-white text-sm">{duplicateMatch.fullName}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">ስልክ ቁጥር፡</span>
+                          <span className="font-bold text-amber-400 font-mono text-sm">{duplicateMatch.phoneNumber || 'ያልተመዘገበ'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">የመታወቂያ ካርድ ቁጥር፡</span>
+                          <span className="font-mono font-bold text-amber-300 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">{duplicateMatch.idCardNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">የምስክር ወረቀት ቁጥር፡</span>
+                          <span className="font-mono font-bold text-slate-200">{duplicateMatch.certNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">ብሔራዊ መታወቂያ ቁጥር፡</span>
+                          <span className="font-mono text-slate-300">{duplicateMatch.nationalIdNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">የመኖሪያ አድራሻ፡</span>
+                          <span className="text-slate-300">{duplicateMatch.region}፣ {duplicateMatch.zone}፣ {duplicateMatch.woreda}፣ ቀበሌ {duplicateMatch.kebele}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">የመሳሪያው አይነትና መ/ቁ፡</span>
+                          <span className="font-semibold text-slate-200">{duplicateMatch.firearmType} ({duplicateMatch.weaponCode || 'መ/ቁ የለውም'})</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">የጥይትና ካርት ብዛት፡</span>
+                          <span className="font-semibold text-emerald-400">{duplicateMatch.bulletCount} ጥይት • {duplicateMatch.magazineCount} ካርት</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px]">የተመዘገበበት ቀንና ሁኔታ፡</span>
+                          <span className="font-bold text-slate-200">{duplicateMatch.registrationDate} ({duplicateMatch.status})</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border-2 border-emerald-500/80 bg-emerald-950/80 p-4 shadow-xl">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white font-black text-base shadow shrink-0">
+                      ✓
+                    </span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-black text-emerald-200">
+                          ይህ የጦር መሳሪያ ቀደም ሲል ገቢ የተደረገ (Surrendered) ስለሆነ በአዲስ መልክ ማውጣት ይቻላል!
+                        </h4>
+                        <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow">
+                          ገቢ የተደረገ መሳሪያ (Re-issuable)
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-emerald-300">
+                        የጦር መሳሪያ ንምራ ቁጥር <b>{duplicateMatch.serialNumber}</b> ቀደም ሲል በ<b>{duplicateMatch.fullName}</b> ስም ተመዝግቦ የነበረ ቢሆንም፣ በምክንያት፡ <b>"{duplicateMatch.surrenderReason || 'በፖሊስ ግምጃ ቤት ገቢ ተደርጓል'}"</b> በ<b>{duplicateMatch.depotLocation || 'ዋና ግምጃ ቤት'}</b> ገቢ ተደርጓል፡፡ አሁን በአዲስ መልክ ማውጣትና አዲስ ፈቃድ መስጠት ይቻላል፡፡
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ============================================================== */}
@@ -747,18 +908,38 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             {/* Submit and Send to Official (መዝግበህ ወደ ሃላፊው ላክ) */}
             <button
               type="button"
+              disabled={isDuplicateBlocked}
               onClick={(e) => handleSubmit(e, 'idCard')}
-              className="flex flex-1 md:flex-none items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 text-sm font-extrabold text-slate-950 shadow-lg shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 active:scale-[0.98] cursor-pointer"
+              title={
+                isDuplicateBlocked
+                  ? `ይህ መሳሪያ (${duplicateMatch?.serialNumber}) ቀደም ሲል በ${duplicateMatch?.fullName} ስም ተመዝግቦ ያለ በመሆኑ አዲስ ፈቃድ ማውጣት አይቻልም!`
+                  : 'መዝግበህ ወደ ሃላፊው ላክ'
+              }
+              className={`flex flex-1 md:flex-none items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-extrabold shadow-lg transition active:scale-[0.98] ${
+                isDuplicateBlocked
+                  ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'
+                  : 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500 cursor-pointer'
+              }`}
             >
               <IdCard className="h-4 w-4" />
-              መዝግበህ ወደ ሃላፊው ላክ (Send to Approver)
+              {isDuplicateBlocked ? 'መሳሪያው ቀደም ሲል ተመዝግቧል (የተከለከለ)' : 'መዝግበህ ወደ ሃላፊው ላክ (Send to Approver)'}
             </button>
 
             {/* Submit and Preview Certificate */}
             <button
               type="button"
+              disabled={isDuplicateBlocked}
               onClick={(e) => handleSubmit(e, 'certificate')}
-              className="flex flex-1 md:flex-none items-center justify-center gap-2 rounded-xl bg-slate-800 px-5 py-3 text-sm font-bold text-slate-200 border border-slate-700 hover:bg-slate-700 active:scale-[0.98] cursor-pointer"
+              title={
+                isDuplicateBlocked
+                  ? `ይህ መሳሪያ (${duplicateMatch?.serialNumber}) ቀደም ሲል በ${duplicateMatch?.fullName} ስም ተመዝግቦ ያለ በመሆኑ አዲስ ፈቃድ ማውጣት አይቻልም!`
+                  : 'ወደ ሃላፊው ላክና ሰርቲፊኬት እይ'
+              }
+              className={`flex flex-1 md:flex-none items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold border transition active:scale-[0.98] ${
+                isDuplicateBlocked
+                  ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
+                  : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 cursor-pointer'
+              }`}
             >
               <FileText className="h-4 w-4" />
               ወደ ሃላፊው ላክና ሰርቲፊኬት እይ

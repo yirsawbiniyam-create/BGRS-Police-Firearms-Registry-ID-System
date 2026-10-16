@@ -3,7 +3,8 @@ import {
   FirearmRegistration, 
   SystemBranding, 
   AuthUser,
-  UserRole
+  UserRole,
+  SystemCredentials
 } from '../types/index.ts';
 import { 
   DEFAULT_BGRS_FLAG, 
@@ -30,11 +31,25 @@ import {
 } from 'firebase/firestore';
 import { idbGet, idbSet } from '../utils/indexedDbStorage.ts';
 import { compressImage } from '../utils/imageCompressor.ts';
+import { sanitizeForFirestore } from '../utils/firestoreHelper.ts';
+import { 
+  DEFAULT_CREDENTIALS, 
+  hashPassword, 
+  verifyPassword, 
+  generateSalt, 
+  getLockoutStatus, 
+  recordFailedAttempt, 
+  resetFailedAttempts 
+} from '../utils/security.ts';
 
 interface SystemContextType {
   user: AuthUser | null;
-  login: (username: string, password: string) => { success: boolean; message: string };
+  credentials: SystemCredentials;
+  login: (username: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
+  updateAdminCredentials: (newUsername: string, currentPassword: string, newPassword?: string) => Promise<{ success: boolean; message: string }>;
+  updateOfficialCredentials: (newUsername: string, newPassword?: string) => Promise<{ success: boolean; message: string }>;
+  resetCredentialsToDefault: () => Promise<{ success: boolean; message: string }>;
   records: FirearmRegistration[];
   branding: SystemBranding;
   firestoreStatus: 'synced' | 'syncing' | 'offline';
@@ -62,6 +77,7 @@ const STORAGE_KEYS = {
   RECORDS: 'bgrs_firearms_records_v1',
   BRANDING: 'bgrs_firearms_branding_v1',
   SESSION: 'bgrs_firearms_session_v1',
+  CREDENTIALS: 'bgrs_firearms_credentials_v1',
 };
 
 const DEFAULT_BRANDING: SystemBranding = {
@@ -93,6 +109,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     age: 44,
     occupation: 'የዞን አስተዳደር ሰራተኛ',
     positionRole: 'ዋና የደህንነት አስተባባሪ',
+    phoneNumber: '0911425890',
     nationalIdNumber: 'አሶ/10492/2014',
     nationalIdIssueDate: '2014-04-12',
     firearmType: 'ክላሽንኮቭ (AK-47)',
@@ -133,6 +150,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     age: 38,
     occupation: 'ነጋዴ',
     positionRole: 'የንግድ ማህበር ሊቀመንበር',
+    phoneNumber: '0912345678',
     nationalIdNumber: 'መት/55410/2015',
     nationalIdIssueDate: '2015-08-20',
     firearmType: 'ሽጉጥ (Makarov 9mm)',
@@ -171,6 +189,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     age: 52,
     occupation: 'አርሶ አደር',
     positionRole: 'የአካባቢ ሰላም ኮሚቴ አባል',
+    phoneNumber: '0922889900',
     nationalIdNumber: 'ካማ/22901/2013',
     nationalIdIssueDate: '2013-02-15',
     firearmType: 'ክላሽንኮቭ (AK-47)',
@@ -211,6 +230,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     age: 41,
     occupation: 'የፖሊስ አባል',
     positionRole: 'የልዩ ጥበቃ አዛዥ',
+    phoneNumber: '0933776655',
     nationalIdNumber: 'ማኮ/88120/2015',
     nationalIdIssueDate: '2015-11-05',
     firearmType: 'ስናይፐር (SVD Dragunov)',
@@ -289,6 +309,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Firestore Connection & Sync Status
   const [firestoreStatus, setFirestoreStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   // Fast Startup Hydration: Read unlimited-size IndexedDB cache instantly on mount
   useEffect(() => {
@@ -304,12 +325,18 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (cachedRecords && Array.isArray(cachedRecords) && cachedRecords.length > 0) {
             setRecords(cachedRecords);
           }
-          if (cachedBranding) {
-            setBranding((prev) => ({ ...prev, ...cachedBranding }));
+          if (cachedBranding && Object.keys(cachedBranding).length > 0) {
+            setBranding((prev) => ({
+              ...prev,
+              ...cachedBranding,
+              watermarkLogo: cachedBranding.watermarkLogo || prev.watermarkLogo || DEFAULT_POLICE_WATERMARK,
+            }));
           }
+          setIsHydrated(true);
         }
       } catch (err) {
         console.warn('IndexedDB initial hydration notice:', err);
+        if (isMounted) setIsHydrated(true);
       }
     })();
 
@@ -322,44 +349,36 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     let unsubscribeBranding: (() => void) | null = null;
     try {
-      const brandingDocRef = doc(db, 'system_config', 'branding');
+      const configCol = collection(db, 'system_config');
       unsubscribeBranding = onSnapshot(
-        brandingDocRef,
-        async (docSnap) => {
+        configCol,
+        (snapshot) => {
           let mergedBranding: Partial<SystemBranding> = {};
 
-          if (docSnap.exists()) {
-            mergedBranding = { ...docSnap.data() as Partial<SystemBranding> };
-          }
+          const assetDocMap: Record<string, keyof SystemBranding> = {
+            asset_policeLogo: 'policeLogo',
+            asset_watermarkLogo: 'watermarkLogo',
+            asset_bgrsFlag: 'bgrsFlag',
+            asset_ethiopiaFlag: 'ethiopiaFlag',
+            asset_officialStampSeal: 'officialStampSeal',
+            asset_approverSig: 'defaultApproverSignature',
+            asset_registrarSig: 'defaultRegistrarSignature',
+          };
 
-          // Check individual asset sub-documents to guarantee no 1MB limit blockage
-          try {
-            const assetKeys: Array<{ docId: string; field: keyof SystemBranding }> = [
-              { docId: 'asset_policeLogo', field: 'policeLogo' },
-              { docId: 'asset_watermarkLogo', field: 'watermarkLogo' },
-              { docId: 'asset_bgrsFlag', field: 'bgrsFlag' },
-              { docId: 'asset_ethiopiaFlag', field: 'ethiopiaFlag' },
-              { docId: 'asset_officialStampSeal', field: 'officialStampSeal' },
-              { docId: 'asset_approverSig', field: 'defaultApproverSignature' },
-              { docId: 'asset_registrarSig', field: 'defaultRegistrarSignature' },
-            ];
-
-            const assetDocs = await Promise.all(
-              assetKeys.map((k) => getDoc(doc(db, 'system_config', k.docId)).catch(() => null))
-            );
-
-            assetDocs.forEach((aSnap, idx) => {
-              if (aSnap && aSnap.exists()) {
-                const val = aSnap.data()?.value;
-                if (val && typeof val === 'string') {
-                  const fieldKey = assetKeys[idx].field;
-                  (mergedBranding as any)[fieldKey] = val;
-                }
+          snapshot.forEach((docSnap) => {
+            if (docSnap.id === 'branding') {
+              const data = docSnap.data();
+              if (data) {
+                Object.assign(mergedBranding, data);
               }
-            });
-          } catch (e) {
-            console.warn('Asset sub-documents fetch notice:', e);
-          }
+            } else if (docSnap.id in assetDocMap) {
+              const fieldKey = assetDocMap[docSnap.id];
+              const val = docSnap.data()?.value;
+              if (val && typeof val === 'string') {
+                (mergedBranding as any)[fieldKey] = val;
+              }
+            }
+          });
 
           if (Object.keys(mergedBranding).length > 0) {
             setBranding((prev) => {
@@ -374,9 +393,15 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               } catch {}
               return updated;
             });
-          } else if (!docSnap.exists()) {
+          } else if (snapshot.empty) {
             // First time initialization in cloud
-            setDoc(brandingDocRef, DEFAULT_BRANDING).catch((e) => {
+            setDoc(doc(db, 'system_config', 'branding'), {
+              commissionNameAm: DEFAULT_BRANDING.commissionNameAm,
+              commissionNameEn: DEFAULT_BRANDING.commissionNameEn,
+              processNameAm: DEFAULT_BRANDING.processNameAm,
+              processNameEn: DEFAULT_BRANDING.processNameEn,
+              contactPhone: DEFAULT_BRANDING.contactPhone,
+            }).catch((e) => {
               console.warn('Initial branding cloud seed notice:', e);
             });
           }
@@ -457,21 +482,23 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, []);
 
-  // Save records locally as instant fallback
+  // Save records locally as instant fallback (ONLY AFTER HYDRATION)
   useEffect(() => {
+    if (!isHydrated) return;
     idbSet('firearms_records', records);
     try {
       localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
     } catch {}
-  }, [records]);
+  }, [records, isHydrated]);
 
-  // Save branding on modification
+  // Save branding on modification (ONLY AFTER HYDRATION)
   useEffect(() => {
+    if (!isHydrated) return;
     idbSet('system_branding', branding);
     try {
       localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(branding));
     } catch {}
-  }, [branding]);
+  }, [branding, isHydrated]);
 
   // Save session
   useEffect(() => {
@@ -591,13 +618,22 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (finalUpdate[item.key]) {
           await setDoc(
             doc(db, 'system_config', item.docId),
-            { value: finalUpdate[item.key] },
+            { value: finalUpdate[item.key], updatedAt: new Date().toISOString() },
             { merge: true }
           ).catch((e) => console.warn(`Sub-asset ${item.docId} write warning:`, e));
         }
       }
 
-      await setDoc(doc(db, 'system_config', 'branding'), updated, { merge: true });
+      // Safe clean metadata document without giant base64 images to prevent 1MB overflow
+      const metaDoc = {
+        commissionNameAm: updated.commissionNameAm,
+        commissionNameEn: updated.commissionNameEn,
+        processNameAm: updated.processNameAm,
+        processNameEn: updated.processNameEn,
+        contactPhone: updated.contactPhone,
+        updatedAt: new Date().toISOString(),
+      };
+      await setDoc(doc(db, 'system_config', 'branding'), metaDoc, { merge: true });
       setFirestoreStatus('synced');
       return true;
     } catch (err) {
@@ -611,7 +647,34 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await idbSet('system_branding', DEFAULT_BRANDING);
     try {
       localStorage.setItem(STORAGE_KEYS.BRANDING, JSON.stringify(DEFAULT_BRANDING));
-      await setDoc(doc(db, 'system_config', 'branding'), DEFAULT_BRANDING);
+      
+      const assetMap: Array<{ key: keyof SystemBranding; docId: string }> = [
+        { key: 'policeLogo', docId: 'asset_policeLogo' },
+        { key: 'watermarkLogo', docId: 'asset_watermarkLogo' },
+        { key: 'bgrsFlag', docId: 'asset_bgrsFlag' },
+        { key: 'ethiopiaFlag', docId: 'asset_ethiopiaFlag' },
+        { key: 'officialStampSeal', docId: 'asset_officialStampSeal' },
+        { key: 'defaultApproverSignature', docId: 'asset_approverSig' },
+        { key: 'defaultRegistrarSignature', docId: 'asset_registrarSig' },
+      ];
+
+      for (const item of assetMap) {
+        await setDoc(
+          doc(db, 'system_config', item.docId),
+          { value: DEFAULT_BRANDING[item.key], updatedAt: new Date().toISOString() },
+          { merge: true }
+        ).catch(() => {});
+      }
+
+      await setDoc(doc(db, 'system_config', 'branding'), {
+        commissionNameAm: DEFAULT_BRANDING.commissionNameAm,
+        commissionNameEn: DEFAULT_BRANDING.commissionNameEn,
+        processNameAm: DEFAULT_BRANDING.processNameAm,
+        processNameEn: DEFAULT_BRANDING.processNameEn,
+        contactPhone: DEFAULT_BRANDING.contactPhone,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
       setFirestoreStatus('synced');
       return true;
     } catch (err) {
@@ -691,7 +754,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Persist to Firestore with instant local state maintained
     try {
-      setDoc(doc(db, 'firearms_records', newRecord.id), newRecord).catch((e) => {
+      setDoc(doc(db, 'firearms_records', newRecord.id), sanitizeForFirestore(newRecord)).catch((e) => {
         console.warn('Firestore write notice (local state maintained):', e);
       });
     } catch (e) {
@@ -703,8 +766,8 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const updateRegistration = (id: string, updates: Partial<FirearmRegistration>) => {
     const now = new Date().toISOString();
-    setRecords(prev =>
-      prev.map(item =>
+    setRecords(prev => {
+      const updated = prev.map(item =>
         item.id === id
           ? {
               ...item,
@@ -712,15 +775,17 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               updatedAt: now,
             }
           : item
-      )
-    );
+      );
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     // Update in Firestore
     try {
-      updateDoc(doc(db, 'firearms_records', id), {
-        ...updates,
-        updatedAt: now,
-      }).catch((e) => {
+      setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore({ ...updates, updatedAt: now }), { merge: true }).catch((e) => {
         console.warn('Firestore update notice:', e);
       });
     } catch (e) {
@@ -729,7 +794,14 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteRegistration = (id: string) => {
-    setRecords(prev => prev.filter(item => item.id !== id));
+    setRecords(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     try {
       deleteDoc(doc(db, 'firearms_records', id)).catch(() => {});
     } catch {}
@@ -742,12 +814,12 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       approvedAt: now,
       approvedBy: approverName || user?.fullName || 'ኮማንደር መንግስቱ በቀለ',
       approverSignature: branding.defaultApproverSignature,
-      notes,
+      notes: notes || '',
       updatedAt: now,
     };
 
-    setRecords(prev =>
-      prev.map(item => {
+    setRecords(prev => {
+      const updated = prev.map(item => {
         if (item.id === id) {
           return {
             ...item,
@@ -756,11 +828,16 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           };
         }
         return item;
-      })
-    );
+      });
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     try {
-      updateDoc(doc(db, 'firearms_records', id), updates).catch(() => {});
+      setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true }).catch(() => {});
     } catch {}
   };
 
@@ -772,19 +849,24 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updatedAt: now,
     };
 
-    setRecords(prev =>
-      prev.map(item =>
+    setRecords(prev => {
+      const updated = prev.map(item =>
         item.id === id
           ? {
               ...item,
               ...updates,
             }
           : item
-      )
-    );
+      );
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     try {
-      updateDoc(doc(db, 'firearms_records', id), updates).catch(() => {});
+      setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true }).catch(() => {});
     } catch {}
   };
 
@@ -796,19 +878,24 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updatedAt: now,
     };
 
-    setRecords(prev =>
-      prev.map(item =>
+    setRecords(prev => {
+      const updated = prev.map(item =>
         item.id === id
           ? {
               ...item,
               ...updates,
             }
           : item
-      )
-    );
+      );
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     try {
-      updateDoc(doc(db, 'firearms_records', id), updates).catch(() => {});
+      setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true }).catch(() => {});
     } catch {}
   };
 
@@ -825,41 +912,52 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       warningNoticeSent: false,
     };
 
-    setRecords(prev =>
-      prev.map(item =>
+    setRecords(prev => {
+      const updated = prev.map(item =>
         item.id === id
           ? {
               ...item,
               ...updates,
             }
           : item
-      )
-    );
+      );
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     try {
-      updateDoc(doc(db, 'firearms_records', id), updates).catch(() => {});
+      setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true }).catch(() => {});
     } catch {}
   };
 
   const sendWarningNotice = (id: string) => {
     const now = new Date().toISOString();
-    setRecords(prev =>
-      prev.map(item =>
+    const updates = {
+      warningNoticeSent: true,
+      updatedAt: now,
+    };
+
+    setRecords(prev => {
+      const updated = prev.map(item =>
         item.id === id
           ? {
               ...item,
-              warningNoticeSent: true,
-              updatedAt: now,
+              ...updates,
             }
           : item
-      )
-    );
+      );
+      idbSet('firearms_records', updated);
+      try {
+        localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     try {
-      updateDoc(doc(db, 'firearms_records', id), {
-        warningNoticeSent: true,
-        updatedAt: now,
-      }).catch(() => {});
+      setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true }).catch(() => {});
     } catch {}
   };
 
@@ -923,7 +1021,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     try {
-      await updateDoc(doc(db, 'firearms_records', id), updates);
+      await setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true });
     } catch (e) {
       console.warn('Firestore surrender write notice:', e);
     }
@@ -1004,7 +1102,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     try {
-      await updateDoc(doc(db, 'firearms_records', id), updates);
+      await setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true });
     } catch (e) {
       console.warn('Firestore replace write notice:', e);
     }
@@ -1068,7 +1166,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     try {
-      await updateDoc(doc(db, 'firearms_records', id), updates);
+      await setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true });
     } catch (e) {
       console.warn('Firestore ammo write notice:', e);
     }
@@ -1149,7 +1247,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     try {
-      await updateDoc(doc(db, 'firearms_records', id), updates);
+      await setDoc(doc(db, 'firearms_records', id), sanitizeForFirestore(updates), { merge: true });
     } catch (e) {
       console.warn('Firestore reissue write notice:', e);
     }

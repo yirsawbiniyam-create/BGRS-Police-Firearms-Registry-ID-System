@@ -174,12 +174,19 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
               </span>
             </div>
 
-            {/* Full Name */}
-            <div className="flex items-center gap-1">
-              <span className="font-extrabold text-amber-300">ሙሉ ስም፡</span>
-              <span className="font-black text-amber-200 text-[11px] truncate max-w-[195px] drop-shadow-sm">
-                {registration.fullName}
-              </span>
+            {/* Full Name & Phone */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 truncate max-w-[190px]">
+                <span className="font-extrabold text-amber-300">ሙሉ ስም፡</span>
+                <span className="font-black text-amber-200 text-[11px] truncate drop-shadow-sm">
+                  {registration.fullName}
+                </span>
+              </div>
+              {registration.phoneNumber && (
+                <span className="font-mono text-[8px] text-amber-300 font-bold bg-black/40 px-1 py-0.2 rounded border border-amber-400/30">
+                  {registration.phoneNumber}
+                </span>
+              )}
             </div>
 
             {/* Address */}

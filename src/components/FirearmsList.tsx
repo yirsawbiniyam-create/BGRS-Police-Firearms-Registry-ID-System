@@ -230,11 +230,11 @@ export const FirearmsList: React.FC<FirearmsListProps> = ({
                         <div className="text-[10px] text-slate-400 font-mono">{r.certNumber}</div>
                       </td>
 
-                      {/* Full Name & Address */}
+                      {/* Full Name & Address & Phone */}
                       <td className="py-3 px-4">
                         <div className="font-bold text-white text-sm">{r.fullName}</div>
-                        <div className="text-[11px] text-slate-400 truncate max-w-[200px]">
-                          {r.woreda}፣ {r.kebele} ({r.occupation})
+                        <div className="text-[11px] text-slate-400 truncate max-w-[220px]">
+                          {r.woreda}፣ {r.kebele} {r.phoneNumber ? <span className="text-amber-400/90 font-mono ml-1">({r.phoneNumber})</span> : ''}
                         </div>
                       </td>
 

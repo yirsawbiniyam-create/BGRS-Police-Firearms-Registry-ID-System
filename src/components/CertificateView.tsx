@@ -205,19 +205,13 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
                     className="h-full w-full object-contain" 
                   />
                 </div>
-                <div className="text-center">
-                  <p className="text-[10px] font-bold text-slate-700 tracking-wider">
-                    በኢትዮጵያ ፌዴራላዊ ዲሞክራሲያዊ ሪፐብሊክ
-                  </p>
-                  <h1 className="text-base font-black text-slate-950 tracking-wide font-serif leading-tight">
+                <div className="text-center py-1">
+                  <h1 className="text-lg font-black text-slate-950 tracking-wide font-serif leading-tight">
                     {branding.commissionNameAm}
                   </h1>
-                  <h2 className="text-xs font-extrabold text-amber-950 leading-tight">
+                  <h2 className="text-sm font-extrabold text-amber-950 leading-tight mt-0.5">
                     {branding.processNameAm}
                   </h2>
-                  <span className="text-[9px] font-bold text-slate-600 tracking-wider">
-                    የጦር መሳሪያ ምዝገባና ፈቃድ ቁጥጥር ዋና ክፍል
-                  </span>
                 </div>
               </div>
             </div>
@@ -282,11 +276,11 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
           {/* Certificate Main Title Banner */}
           <div className="mt-2 flex justify-center">
             <div className="border-y-2 border-amber-900 bg-gradient-to-r from-amber-50 via-amber-100/90 to-amber-50 px-8 py-1.5 text-center w-full shadow-sm">
-              <h3 className="text-base font-black text-amber-950 tracking-wider font-serif">
-                የጦር መሳሪያ ምዝገባ እና ህጋዊ ይዞታ ምስክር ወረቀት
+              <h3 className="text-lg font-black text-amber-950 tracking-wider font-serif">
+                የጦር መሳሪያ ምዝገባ እና ምስክር ወረቀት
               </h3>
-              <p className="text-[10px] font-extrabold text-amber-900 tracking-wide font-sans">
-                OFFICIAL FIREARMS REGISTRATION & LICENSING CERTIFICATE
+              <p className="text-[10.5px] font-extrabold text-amber-900 tracking-wide font-sans">
+                OFFICIAL FIREARMS REGISTRATION CERTIFICATE
               </p>
             </div>
           </div>
@@ -364,6 +358,17 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
                   <span className="ml-1 text-[10px] text-slate-600">
                     ({registration.nationalIdIssueDate})
                   </span>
+                </div>
+
+                <div className="col-span-2 flex items-center justify-between border-t border-slate-100 pt-0.5 text-[10.5px]">
+                  <div>
+                    <span className="font-bold text-slate-700">የባለመሳሪያው ስልክ ቁጥር፡ </span>
+                    <span className="font-mono font-black text-slate-950">{registration.phoneNumber || '---'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-700">የመዝገብ መለያ፡ </span>
+                    <span className="font-mono text-slate-600">{registration.id}</span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -327,6 +327,39 @@ export const SystemSettings: React.FC = () => {
             />
           </label>
         </div>
+
+        {/* 6. Official Stamp & Seal */}
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-rose-400" /> የፖሊስ ኮሚሽኑ ይፋዊ ማህተም (Official Stamp Seal)
+              </span>
+              <span className="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                ቀይ ማህተም
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              በምዝገባ ሰርቲፊኬት እና ሰነዶች ላይ ህጋዊ ማህተም ሆኖ በራስ-ሰር የሚተገበር
+            </p>
+            <div className="flex items-center justify-center rounded-2xl bg-white p-4 border border-slate-800 h-36">
+              <img
+                src={branding.officialStampSeal}
+                alt="Official Stamp Seal"
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+          </div>
+          <label className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-800 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
+            <Upload className="h-4 w-4 text-amber-400" /> አዲስ ይፋዊ ማህተም ጫን
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleFileUpload(e, 'officialStampSeal')}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
 
       {/* Emergency Contact Phone Config */}

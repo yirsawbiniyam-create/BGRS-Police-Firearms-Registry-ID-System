@@ -7,6 +7,20 @@ export interface AuthUser {
   title: string;
 }
 
+export interface UserCredential {
+  username: string;
+  passwordHash: string; // Salted SHA-256 hash
+  salt: string;
+  fullName: string;
+  title: string;
+  updatedAt?: string;
+}
+
+export interface SystemCredentials {
+  admin: UserCredential;
+  official: UserCredential;
+}
+
 export type FirearmOwnership = 'የመንግስት' | 'የግል';
 
 export type FirearmMechanism = 
@@ -84,6 +98,7 @@ export interface FirearmRegistration {
   age: number;                     // 4. ዕድሜ
   occupation: string;              // 5. ስራ
   positionRole: string;            // ሃላፊነት
+  phoneNumber?: string;            // የስልክ ቁጥር (Phone Number)
   nationalIdNumber: string;        // 6. መታወቂያ ቁጥር
   nationalIdIssueDate: string;     // የተሰጠበት ቀን
   
