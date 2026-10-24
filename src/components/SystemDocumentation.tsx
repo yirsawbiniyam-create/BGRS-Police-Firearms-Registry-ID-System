@@ -46,7 +46,7 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
               የሲስተም አጠቃላይ ሰነድ እና ማኑዋል (Official System Document)
             </h2>
             <p className="text-xs text-slate-400">
-              የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የጦር መሳሪያ ምዝገባ ሲስተም የተሟላ ሰነድ
+              የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የጦር መሳሪያ ምዝገባ፣ ቁጥጥር እና ዲጂታል ፈቃድ ሲስተም የተሟላ ሰነድ
             </p>
           </div>
         </div>
@@ -100,10 +100,10 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
             ኦፊሴላዊ የፕሮጀክት እና የቴክኒክ ሰነድ (Official System & Project Document)
           </span>
           <h2 className="text-xl sm:text-2xl font-black text-slate-950 font-serif leading-snug">
-            የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የጦር መሳሪያ ምዝገባ፣ ቁጥጥር እና ዲጂታል ፈቃድ ማረጋገጫ ሲስተም
+            የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የጦር መሳሪያ ምዝገባ፣ ቁጥጥር እና ዲጂታል ፈቃድ ሲስተም
           </h2>
           <p className="text-xs font-bold text-slate-700 mt-2">
-            Benishangul Gumuz Regional Police Commission Firearms Registration, Control & Digital Verification System
+            Benishangul Gumuz Regional Police Commission Firearms Registration, Control & Digital Permit System
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 border-t border-slate-200 pt-3">
             <span><b>ሲስተሙን ያዘጋጀው፦</b> ቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን ቴክኖሎጂ ማስፋፊያ እና መረጃ ማዕከል</span>
@@ -123,7 +123,7 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
             1. የሲስተሙ ይፋዊ ርዕስ (System Title)
           </h3>
           <p className="text-sm text-slate-800 leading-relaxed pl-7">
-            <b>«በኢትዮጵያ ፌዴራላዊ ዲሞክራሲያዊ ሪፐብሊክ የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የወንጀል መከላከል የስራ ሂደት የጦር መሳሪያ ምዝገባ፣ ዲጂታል መታወቂያ፣ ሰርቲፊኬት እና ፈጣን ማረጋገጫ ሲስተም (BGRS Police Commission Firearms Registration & Verification System)»</b>
+            <b>«በኢትዮጵያ ፌዴራላዊ ዲሞክራሲያዊ ሪፐብሊክ የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የወንጀል መከላከል የስራ ሂደት የጦር መሳሪያ ምዝገባ፣ ቁጥጥር እና ዲጂታል ፈቃድ ሲስተም (BGRS Police Commission Firearms Registration, Control & Digital Permit System)»</b>
           </p>
         </section>
 
@@ -418,7 +418,7 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
           </h3>
           <div className="text-xs sm:text-sm text-slate-800 space-y-3 pl-7">
             <p>
-              ይህ የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የወንጀል መከላከል የስራ ሂደት የጦር መሳሪያ ምዝገባ፣ ቁጥጥር እና ዲጂታል ፈቃድ ማረጋገጫ ሲስተም የክልሉን ፖሊስ አሰራር ወደ ላቀ የቴክኖሎጂ ምዕራፍ ያሸጋገረ ፕሮጀክት ነው።
+              ይህ የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የወንጀል መከላከል የስራ ሂደት የጦር መሳሪያ ምዝገባ፣ ቁጥጥር እና ዲጂታል ፈቃድ ሲስተም የክልሉን ፖሊስ አሰራር ወደ ላቀ የቴክኖሎጂ ምዕራፍ ያሸጋገረ ፕሮጀክት ነው።
             </p>
             <p>
               ሲስተሙ የተደራራቢ ንምራ ቁጥር ማጭበርበርን በራስ-ሰር የሚያስቀር፣ መሳሪያዎች በግምጃ ቤት ገቢ ሲደረጉና ሲቀየሩ ታሪካቸውን የሚያደራጅ፣ ዘመናዊ የኪስ ኤቲኤም መታወቂያ እና ህጋዊ የA4 ምስክር ወረቀት የሚያመነጭ፣ እንዲሁም በፍተሻ ኬላዎች በሰከንዶች ውስጥ በስልክ ካሜራ ማረጋገጥ የሚያስችል ነው።
