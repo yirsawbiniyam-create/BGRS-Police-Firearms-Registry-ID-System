@@ -106,7 +106,9 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
             Benishangul Gumuz Regional Police Commission Firearms Registration, Control & Digital Verification System
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 border-t border-slate-200 pt-3">
-            <span><b>የተዘጋጀው፦</b> በኮሚሽኑ ቴክኖሎጂ ማስፋፊያና መረጃ ማዕከል</span>
+            <span><b>ሲስተሙን ያዘጋጀው፦</b> ቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን ቴክኖሎጂ ማስፋፊያ እና መረጃ ማዕከል</span>
+            <span>•</span>
+            <span><b>ያረጋገጠው፦</b> ም/ኢ/ር ቢኒያም ይርሳው መጢና (የቴክኖሎጂ ማስፋፊያ እና መረጃ ማዕከል ኃላፊ)</span>
             <span>•</span>
             <span><b>ስሪት፦</b> 2.0 (High Security Cloud Edition)</span>
             <span>•</span>
@@ -430,14 +432,14 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
         {/* Official Document Footer Stamp & Signatures */}
         <div className="mt-10 border-t-2 border-slate-900 pt-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 text-center text-xs">
-            {/* Left: Registrar */}
+            {/* Left: Prepared By */}
             <div className="flex flex-col items-center">
-              <span className="font-bold text-slate-700">ሰነዱን ያዘጋጀው መዝጋቢ ኦፊሰር፦</span>
-              <div className="h-12 w-28 my-1 flex items-center justify-center">
+              <span className="font-bold text-slate-700">ሲስተሙን ያዘጋጀው፦</span>
+              <div className="h-12 w-32 my-1 flex items-center justify-center">
                 <img src={branding.defaultRegistrarSignature} alt="Registrar Signature" className="max-h-full max-w-full object-contain" />
               </div>
-              <span className="font-extrabold text-slate-950">ኢንስፔክተር አለሙ ከበደ</span>
-              <span className="text-[10px] text-slate-500">የቴክኖሎጂ እና መዝጋቢ ኦፊሰር</span>
+              <span className="font-extrabold text-slate-950">የቴክኖሎጂ ማስፋፊያ እና መረጃ ማዕከል</span>
+              <span className="text-[10px] text-slate-600">ቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን</span>
             </div>
 
             {/* Center: Official Seal */}
@@ -448,14 +450,14 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
               <span className="text-[10px] font-bold text-slate-600">ይፋዊ ማህተም (Official Seal)</span>
             </div>
 
-            {/* Right: Approving Commander */}
+            {/* Right: Verified and Approved By */}
             <div className="flex flex-col items-center">
-              <span className="font-bold text-slate-700">ያረጋገጠውና ያጸደቀው የስራ ሂደት ሃላፊ፦</span>
-              <div className="h-12 w-28 my-1 flex items-center justify-center">
+              <span className="font-bold text-slate-700">ያረጋገጠውና ያጸደቀው፦</span>
+              <div className="h-12 w-32 my-1 flex items-center justify-center">
                 <img src={branding.defaultApproverSignature} alt="Approver Signature" className="max-h-full max-w-full object-contain" />
               </div>
-              <span className="font-extrabold text-slate-950">ኮማንደር መንግስቱ በቀለ</span>
-              <span className="text-[10px] text-slate-500">{branding.processNameAm} ሃላፊ</span>
+              <span className="font-extrabold text-slate-950">ም/ኢ/ር ቢኒያም ይርሳው መጢና</span>
+              <span className="text-[10px] text-slate-600 font-bold">የቴክኖሎጂ ማስፋፊያ እና መረጃ ማዕከል ኃላፊ</span>
             </div>
           </div>
         </div>
