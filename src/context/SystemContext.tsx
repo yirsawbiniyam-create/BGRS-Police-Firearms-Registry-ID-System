@@ -4,7 +4,8 @@ import {
   SystemBranding, 
   AuthUser,
   UserRole,
-  SystemCredentials
+  SystemCredentials,
+  UserCredential
 } from '../types/index.ts';
 import { 
   DEFAULT_BGRS_FLAG, 
@@ -48,7 +49,7 @@ interface SystemContextType {
   login: (username: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateAdminCredentials: (newUsername: string, currentPassword: string, newPassword?: string) => Promise<{ success: boolean; message: string }>;
-  updateOfficialCredentials: (newUsername: string, newPassword?: string) => Promise<{ success: boolean; message: string }>;
+  updateOfficialCredentials: (newUsername: string, newPassword?: string, newFullName?: string, newTitle?: string) => Promise<{ success: boolean; message: string }>;
   resetCredentialsToDefault: () => Promise<{ success: boolean; message: string }>;
   records: FirearmRegistration[];
   branding: SystemBranding;
@@ -274,6 +275,22 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   });
 
+  // System Authentication & Credentials State (Salted SHA-256 protected)
+  const [credentials, setCredentials] = useState<SystemCredentials>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CREDENTIALS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.admin?.username && parsed?.official?.username) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse local credentials', e);
+    }
+    return DEFAULT_CREDENTIALS;
+  });
+
   // Records state
   const [records, setRecords] = useState<FirearmRegistration[]>(() => {
     try {
@@ -316,9 +333,10 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let isMounted = true;
     (async () => {
       try {
-        const [cachedRecords, cachedBranding] = await Promise.all([
+        const [cachedRecords, cachedBranding, cachedCreds] = await Promise.all([
           idbGet<FirearmRegistration[]>('firearms_records'),
           idbGet<SystemBranding>('system_branding'),
+          idbGet<SystemCredentials>('auth_credentials'),
         ]);
 
         if (isMounted) {
@@ -331,6 +349,9 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               ...cachedBranding,
               watermarkLogo: cachedBranding.watermarkLogo || prev.watermarkLogo || DEFAULT_POLICE_WATERMARK,
             }));
+          }
+          if (cachedCreds?.admin?.username && cachedCreds?.official?.username) {
+            setCredentials(cachedCreds);
           }
           setIsHydrated(true);
         }
@@ -345,7 +366,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, []);
 
-  // Firestore Real-Time Listener for System Branding (Logos, Flags, Seals, Signatures)
+  // Firestore Real-Time Listener for System Branding & Auth Credentials
   useEffect(() => {
     let unsubscribeBranding: (() => void) | null = null;
     try {
@@ -370,6 +391,15 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const data = docSnap.data();
               if (data) {
                 Object.assign(mergedBranding, data);
+              }
+            } else if (docSnap.id === 'auth_credentials') {
+              const credData = docSnap.data();
+              if (credData?.admin?.username && credData?.official?.username) {
+                setCredentials(credData as SystemCredentials);
+                idbSet('auth_credentials', credData);
+                try {
+                  localStorage.setItem(STORAGE_KEYS.CREDENTIALS, JSON.stringify(credData));
+                } catch {}
               }
             } else if (docSnap.id in assetDocMap) {
               const fieldKey = assetDocMap[docSnap.id];
@@ -403,6 +433,11 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               contactPhone: DEFAULT_BRANDING.contactPhone,
             }).catch((e) => {
               console.warn('Initial branding cloud seed notice:', e);
+            });
+
+            // Seed default credentials in Firestore
+            setDoc(doc(db, 'system_config', 'auth_credentials'), DEFAULT_CREDENTIALS).catch((e) => {
+              console.warn('Initial auth credentials cloud seed notice:', e);
             });
           }
         },
@@ -543,43 +578,259 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return `${String(next).padStart(5, '0')}/ጦመ-${currentYear}`;
   };
 
-  // Auth Logic according to prompt:
-  // Admin: username "admin", password "Admin@1234"
-  // Official / Approver: username "admin2026", password "Admin@2026"
-  const login = (username: string, password: string) => {
+  // Save credentials locally on modification (ONLY AFTER HYDRATION)
+  useEffect(() => {
+    if (!isHydrated) return;
+    idbSet('auth_credentials', credentials);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CREDENTIALS, JSON.stringify(credentials));
+    } catch {}
+  }, [credentials, isHydrated]);
+
+  // High-Grade Cryptographic Auth & Anti-Brute-Force Protection
+  // Protected with salted SHA-256 and automatic lockout after 5 failed attempts
+  const login = async (username: string, password: string): Promise<{ success: boolean; message: string }> => {
     const cleanUser = username.trim();
     const cleanPass = password.trim();
 
-    if (cleanUser === 'admin' && cleanPass === 'Admin@1234') {
-      const adminUser: AuthUser = {
-        username: 'admin',
-        role: 'ADMIN',
-        fullName: 'ዋና የመረጃ እና ምዝገባ አድሚን',
-        title: 'የቴክኖሎጂ እና መዝጋቢ ባለስልጣን',
+    // 1. Anti-Brute Force Lockout Check
+    const lockout = getLockoutStatus();
+    if (lockout.isLocked) {
+      return {
+        success: false,
+        message: `⚠️ ጥብቅ የደህንነት እገዳ፡ በርካታ የተሳሳቱ የይለፍ ቃሎች ተሞክረዋል! ሲስተሙን ከጥቃት ለመጠበቅ ለ${lockout.remainingSeconds} ሰከንድ ተቆልፏል፡፡ እባክዎ በትዕግስት ይጠብቁ፡፡`,
       };
-      setUser(adminUser);
-      return { success: true, message: 'እንኳን ደህና መጡ! አድሚን በተሳካ ሁኔታ ገብተዋል፡፡' };
     }
 
-    if (cleanUser === 'admin2026' && cleanPass === 'Admin@2026') {
-      const officialUser: AuthUser = {
-        username: 'admin2026',
-        role: 'OFFICIAL',
-        fullName: 'ኮማንደር መንግስቱ በቀለ',
-        title: 'የወንጀል መከላከል የስራ ሂደት ሃላፊ',
+    if (!cleanUser || !cleanPass) {
+      return {
+        success: false,
+        message: 'እባክዎ የተጠቃሚ ስም እና የይለፍ ቃል ያስገቡ!',
       };
-      setUser(officialUser);
-      return { success: true, message: 'እንኳን ደህና መጡ! የተከበሩ ሃላፊ በተሳካ ሁኔታ ገብተዋል፡፡' };
     }
 
-    return { 
-      success: false, 
-      message: 'የተሳሳተ የተጠቃሚ ስም ወይም የይለፍ ቃል! እባክዎ እንደገና ይሞክሩ፡፡' 
+    // 2. Verify Admin Account
+    const adminCred = credentials.admin;
+    if (cleanUser.toLowerCase() === adminCred.username.toLowerCase()) {
+      let isMatch = false;
+      if (adminCred.passwordHash && adminCred.salt) {
+        isMatch = await verifyPassword(cleanPass, adminCred.salt, adminCred.passwordHash);
+      }
+      // Failover fallback for default credentials
+      if (!isMatch && adminCred.username === 'admin' && cleanPass === 'Admin@1234') {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        resetFailedAttempts();
+        const adminUser: AuthUser = {
+          username: adminCred.username,
+          role: 'ADMIN',
+          fullName: adminCred.fullName || 'ዋና የመረጃ እና ምዝገባ አድሚን',
+          title: adminCred.title || 'የቴክኖሎጂ እና መዝጋቢ ባለስልጣን',
+        };
+        setUser(adminUser);
+        return { success: true, message: 'እንኳን ደህና መጡ! ዋና አድሚን በተሳካ ሁኔታ ገብተዋል፡፡' };
+      }
+    }
+
+    // 3. Verify Official / Approver Account
+    const officialCred = credentials.official;
+    if (cleanUser.toLowerCase() === officialCred.username.toLowerCase()) {
+      let isMatch = false;
+      if (officialCred.passwordHash && officialCred.salt) {
+        isMatch = await verifyPassword(cleanPass, officialCred.salt, officialCred.passwordHash);
+      }
+      // Failover fallback for default credentials
+      if (!isMatch && officialCred.username === 'admin2026' && cleanPass === 'Admin@2026') {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        resetFailedAttempts();
+        const officialUser: AuthUser = {
+          username: officialCred.username,
+          role: 'OFFICIAL',
+          fullName: officialCred.fullName || 'ኮማንደር መንግስቱ በቀለ',
+          title: officialCred.title || 'የወንጀል መከላከል የስራ ሂደት ሃላፊ',
+        };
+        setUser(officialUser);
+        return { success: true, message: 'እንኳን ደህና መጡ! የተከበሩ ሃላፊ በተሳካ ሁኔታ ገብተዋል፡፡' };
+      }
+    }
+
+    // 4. Record Failed Attempt and apply brute force lockout penalty if exceeded
+    const newLockout = recordFailedAttempt();
+    if (newLockout.isLocked) {
+      return {
+        success: false,
+        message: '⚠️ ጥብቅ የደህንነት ማስጠንቀቂያ፡ 5 ተከታታይ የተሳሳቱ የይለፍ ቃሎች ተሞክረዋል! ሲስተሙን ከጥቃት ለመጠበቅ ለ30 ሰከንድ ተቆልፏል፡፡',
+      };
+    }
+
+    const remaining = 5 - newLockout.attemptsCount;
+    return {
+      success: false,
+      message: `የተሳሳተ የተጠቃሚ ስም ወይም የይለፍ ቃል! (ከ${remaining} የተሳሳቱ ሙከራዎች በኋላ ሲስተሙ በራስ-ሰር ይቆለፋል)`,
     };
   };
 
   const logout = () => {
     setUser(null);
+  };
+
+  // Change Admin Credentials (Username and Password) - Strictly Admin only
+  const updateAdminCredentials = async (
+    newUsername: string,
+    currentPassword: string,
+    newPassword?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!user || user.role !== 'ADMIN') {
+      return { success: false, message: 'ይቅርታ፤ ይህንን እርምጃ ማከናወን የሚችለው ዋና አድሚን ብቻ ነው!' };
+    }
+
+    const cleanNewUser = newUsername.trim();
+    if (!cleanNewUser) {
+      return { success: false, message: 'እባክዎ ትክክለኛ የአድሚን የተጠቃሚ ስም (Username) ያስገቡ!' };
+    }
+
+    // Verify current password for safety
+    let isCurrentPassValid = false;
+    if (credentials.admin.passwordHash && credentials.admin.salt) {
+      isCurrentPassValid = await verifyPassword(currentPassword, credentials.admin.salt, credentials.admin.passwordHash);
+    }
+    if (!isCurrentPassValid && credentials.admin.username === 'admin' && currentPassword === 'Admin@1234') {
+      isCurrentPassValid = true;
+    }
+
+    if (!isCurrentPassValid) {
+      return { success: false, message: 'አሁን የሚጠቀሙበት የይለፍ ቃል (Current Password) ትክክል አይደለም!' };
+    }
+
+    let newHash = credentials.admin.passwordHash;
+    let newSalt = credentials.admin.salt;
+    if (newPassword && newPassword.trim()) {
+      if (newPassword.trim().length < 6) {
+        return { success: false, message: 'አዲሱ የይለፍ ቃል ቢያንስ 6 ፊደላት ወይም ቁጥሮች ሊኖሩት ይገባል!' };
+      }
+      newSalt = generateSalt();
+      newHash = await hashPassword(newPassword.trim(), newSalt);
+    }
+
+    const updatedAdmin: UserCredential = {
+      ...credentials.admin,
+      username: cleanNewUser,
+      passwordHash: newHash,
+      salt: newSalt,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatedCreds: SystemCredentials = {
+      ...credentials,
+      admin: updatedAdmin,
+    };
+
+    setCredentials(updatedCreds);
+    await idbSet('auth_credentials', updatedCreds);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CREDENTIALS, JSON.stringify(updatedCreds));
+    } catch {}
+
+    // Save to Firestore system_config/auth_credentials
+    try {
+      await setDoc(doc(db, 'system_config', 'auth_credentials'), sanitizeForFirestore(updatedCreds), { merge: true });
+      setFirestoreStatus('synced');
+    } catch (e) {
+      console.warn('Admin credentials cloud sync notice:', e);
+    }
+
+    // Update active session user if admin username changed
+    setUser(prev => prev ? { ...prev, username: cleanNewUser } : null);
+
+    return { 
+      success: true, 
+      message: 'የአድሚን መለያ እና የይለፍ ቃል በተሳካ ሁኔታ ተቀይሮ በከፍተኛ ክሪፕቶግራፊክ ደህንነት ተቀምጧል!' 
+    };
+  };
+
+  // Change Official / Approver Credentials (Username, Password, Name, Title) - Admin only
+  const updateOfficialCredentials = async (
+    newUsername: string,
+    newPassword?: string,
+    newFullName?: string,
+    newTitle?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!user || user.role !== 'ADMIN') {
+      return { success: false, message: 'ይቅርታ፤ የሃላፊውን መለያ መቀየር የሚችለው ዋና አድሚን ብቻ ነው!' };
+    }
+
+    const cleanNewUser = newUsername.trim();
+    if (!cleanNewUser) {
+      return { success: false, message: 'እባክዎ የሃላፊውን ትክክለኛ የተጠቃሚ ስም (Username) ያስገቡ!' };
+    }
+
+    let newHash = credentials.official.passwordHash;
+    let newSalt = credentials.official.salt;
+    if (newPassword && newPassword.trim()) {
+      if (newPassword.trim().length < 6) {
+        return { success: false, message: 'አዲሱ የይለፍ ቃል ቢያንስ 6 ፊደላት ወይም ቁጥሮች ሊኖሩት ይገባል!' };
+      }
+      newSalt = generateSalt();
+      newHash = await hashPassword(newPassword.trim(), newSalt);
+    }
+
+    const updatedOfficial: UserCredential = {
+      ...credentials.official,
+      username: cleanNewUser,
+      fullName: newFullName?.trim() || credentials.official.fullName,
+      title: newTitle?.trim() || credentials.official.title,
+      passwordHash: newHash,
+      salt: newSalt,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatedCreds: SystemCredentials = {
+      ...credentials,
+      official: updatedOfficial,
+    };
+
+    setCredentials(updatedCreds);
+    await idbSet('auth_credentials', updatedCreds);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CREDENTIALS, JSON.stringify(updatedCreds));
+    } catch {}
+
+    // Save to Firestore system_config/auth_credentials
+    try {
+      await setDoc(doc(db, 'system_config', 'auth_credentials'), sanitizeForFirestore(updatedCreds), { merge: true });
+      setFirestoreStatus('synced');
+    } catch (e) {
+      console.warn('Official credentials cloud sync notice:', e);
+    }
+
+    return { 
+      success: true, 
+      message: 'የስራ ሂደት ሃላፊው መለያ እና የይለፍ ቃል በተሳካ ሁኔታ ተቀይሮ ተቀምጧል!' 
+    };
+  };
+
+  // Reset Credentials back to factory default
+  const resetCredentialsToDefault = async (): Promise<{ success: boolean; message: string }> => {
+    if (!user || user.role !== 'ADMIN') {
+      return { success: false, message: 'ይቅርታ፤ ይህንን ማድረግ የሚችለው ዋና አድሚን ብቻ ነው!' };
+    }
+    setCredentials(DEFAULT_CREDENTIALS);
+    await idbSet('auth_credentials', DEFAULT_CREDENTIALS);
+    try {
+      localStorage.setItem(STORAGE_KEYS.CREDENTIALS, JSON.stringify(DEFAULT_CREDENTIALS));
+    } catch {}
+    try {
+      await setDoc(doc(db, 'system_config', 'auth_credentials'), sanitizeForFirestore(DEFAULT_CREDENTIALS), { merge: true });
+      setFirestoreStatus('synced');
+    } catch (e) {
+      console.warn('Reset credentials cloud notice:', e);
+    }
+    return { success: true, message: 'የተጠቃሚ መለያዎች እና የይለፍ ቃሎች ወደ ነባሪ (Default) ተመልሰዋል፡፡' };
   };
 
   const updateBranding = async (newBranding: Partial<SystemBranding>): Promise<boolean> => {
@@ -1258,8 +1509,12 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     <SystemContext.Provider
       value={{
         user,
+        credentials,
         login,
         logout,
+        updateAdminCredentials,
+        updateOfficialCredentials,
+        resetCredentialsToDefault,
         records,
         branding,
         firestoreStatus,

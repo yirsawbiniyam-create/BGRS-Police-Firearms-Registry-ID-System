@@ -12,12 +12,13 @@ import {
   BarChart2, 
   Menu, 
   X,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 
 interface NavbarProps {
   currentView: string;
-  onNavigate: (view: 'dashboard' | 'newRegistration' | 'records' | 'approvals' | 'settings') => void;
+  onNavigate: (view: 'dashboard' | 'newRegistration' | 'records' | 'approvals' | 'settings' | 'documentation') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
@@ -34,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
         { id: 'approvals', label: 'የማጽደቂያ መድረክ (መቆጣጠሪያ)', icon: CheckCircle, badge: pendingCount },
         { id: 'records', label: 'የተመዘገቡ ማህደሮች', icon: FileText },
         { id: 'settings', label: 'አርማዎችና ቅንብር', icon: Settings },
+        { id: 'documentation', label: 'የሲስተም ሰነድ', icon: BookOpen },
       ]
     : [
         { id: 'dashboard', label: 'ዳሽቦርድ', icon: BarChart2 },
@@ -41,6 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
         { id: 'records', label: 'የተመዘገቡ ማህደሮች', icon: FileText },
         { id: 'approvals', label: 'የማጽደቂያ ሁኔታ', icon: CheckCircle, badge: pendingCount },
         { id: 'settings', label: 'አርማዎችና ቅንብር', icon: Settings },
+        { id: 'documentation', label: 'የሲስተም ሰነድ', icon: BookOpen },
       ];
 
   return (
@@ -115,7 +118,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
                 {user?.fullName}
               </span>
               <span className="text-[9px] font-mono text-amber-300/80 leading-tight">
-                {isOfficial ? 'የስራ ሂደት ሃላፊ (admin2026)' : 'መዝጋቢ አድሚን (admin)'}
+                {isOfficial ? `የስራ ሂደት ሃላፊ (${user?.username})` : `መዝጋቢ አድሚን (${user?.username})`}
               </span>
             </div>
           </div>

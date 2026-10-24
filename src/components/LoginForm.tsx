@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSystem } from '../context/SystemContext.tsx';
-import { Shield, Lock, User, KeyRound, AlertCircle } from 'lucide-react';
+import { Shield, Lock, User, KeyRound, AlertCircle, AlertTriangle, Clock } from 'lucide-react';
+import { getLockoutStatus } from '../utils/security.ts';
 
 export const LoginForm: React.FC = () => {
   const { login, branding } = useSystem();
@@ -8,19 +9,51 @@ export const LoginForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [lockoutTime, setLockoutTime] = useState<number>(0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Poll lockout status
+  useEffect(() => {
+    const checkLockout = () => {
+      const status = getLockoutStatus();
+      if (status.isLocked) {
+        setLockoutTime(status.remainingSeconds);
+      } else {
+        setLockoutTime(0);
+      }
+    };
+
+    checkLockout();
+    const interval = setInterval(checkLockout, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setIsLoading(true);
 
-    setTimeout(() => {
-      const res = login(username, password);
+    const currentLockout = getLockoutStatus();
+    if (currentLockout.isLocked) {
+      setLockoutTime(currentLockout.remainingSeconds);
+      setErrorMessage(`⚠️ ጥብቅ የደህንነት እገዳ፡ በርካታ የተሳሳቱ የይለፍ ቃሎች ተሞክረዋል! ሲስተሙን ከጥቃት ለመጠበቅ ለ${currentLockout.remainingSeconds} ሰከንድ ተቆልፏል፡፡`);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await login(username, password);
       if (!res.success) {
         setErrorMessage(res.message);
+        const updatedStatus = getLockoutStatus();
+        if (updatedStatus.isLocked) {
+          setLockoutTime(updatedStatus.remainingSeconds);
+        }
       }
+    } catch (err) {
+      console.error('Login error:', err);
+      setErrorMessage('የመግባት ሂደት ላይ ችግር አጋጥሟል፤ እባክዎ እንደገና ይሞክሩ፡፡');
+    } finally {
       setIsLoading(false);
-    }, 300);
+    }
   };
 
   return (
@@ -52,13 +85,23 @@ export const LoginForm: React.FC = () => {
           </p>
         </div>
 
-        {/* Error Alert Box */}
-        {errorMessage && (
+        {/* Anti-Brute Force Lockout Banner */}
+        {lockoutTime > 0 ? (
+          <div className="mt-5 flex items-center gap-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs font-bold text-amber-950 shadow-xs animate-pulse">
+            <Clock className="h-5 w-5 shrink-0 text-amber-700 animate-spin" />
+            <div>
+              <p className="font-extrabold text-amber-900">ጥብቅ የደህንነት እገዳ (Security Lockout)</p>
+              <p className="text-[11px] text-amber-800">
+                ተደጋጋሚ የተሳሳተ ሙከራ በመደረጉ ሲስተሙ ለ <span className="font-mono text-sm font-black text-rose-700">{lockoutTime}</span> ሰከንድ ተቆልፏል፡፡
+              </p>
+            </div>
+          </div>
+        ) : errorMessage ? (
           <div className="mt-5 flex items-center gap-2.5 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800 shadow-xs">
             <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
             <span>{errorMessage}</span>
           </div>
-        )}
+        ) : null}
 
         {/* Professional Login Form */}
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -73,10 +116,11 @@ export const LoginForm: React.FC = () => {
               <input
                 type="text"
                 required
+                disabled={lockoutTime > 0}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="የተጠቃሚ ስም (Username)"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50/80 py-2.5 pl-10 pr-3 text-sm font-medium text-slate-900 placeholder-slate-400 shadow-2xs transition focus:border-blue-700 focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50/80 py-2.5 pl-10 pr-3 text-sm font-medium text-slate-900 placeholder-slate-400 shadow-2xs transition focus:border-blue-700 focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-100 disabled:opacity-50 disabled:bg-slate-100"
               />
             </div>
           </div>
@@ -92,10 +136,11 @@ export const LoginForm: React.FC = () => {
               <input
                 type="password"
                 required
+                disabled={lockoutTime > 0}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="የይለፍ ቃልዎን ያስገቡ"
-                className="w-full rounded-xl border border-slate-300 bg-slate-50/80 py-2.5 pl-10 pr-3 text-sm font-medium text-slate-900 placeholder-slate-400 shadow-2xs transition focus:border-blue-700 focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-100"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50/80 py-2.5 pl-10 pr-3 text-sm font-medium text-slate-900 placeholder-slate-400 shadow-2xs transition focus:border-blue-700 focus:bg-white focus:outline-none focus:ring-3 focus:ring-blue-100 disabled:opacity-50 disabled:bg-slate-100"
               />
             </div>
           </div>
@@ -103,11 +148,17 @@ export const LoginForm: React.FC = () => {
           {/* Professional High-Authority Submit Button */}
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || lockoutTime > 0}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 py-3.5 px-4 text-sm font-extrabold text-white shadow-md shadow-blue-950/20 transition-all duration-200 hover:from-blue-900 hover:to-slate-850 hover:shadow-lg active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer border border-blue-900/30"
           >
             <KeyRound className="h-4 w-4 text-amber-400" />
-            <span>{isLoading ? 'በመግባት ላይ...' : 'ወደ ሲስተሙ ግባ (Sign In)'}</span>
+            <span>
+              {lockoutTime > 0 
+                ? `ለ${lockoutTime} ሰከንድ ተቆልፏል...` 
+                : isLoading 
+                ? 'በመግባት ላይ...' 
+                : 'ወደ ሲስተሙ ግባ (Sign In)'}
+            </span>
           </button>
         </form>
 

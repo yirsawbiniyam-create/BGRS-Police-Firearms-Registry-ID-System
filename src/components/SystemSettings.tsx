@@ -8,18 +8,23 @@ import {
   Shield, 
   Flag, 
   PenTool, 
-  Phone,
-  Sparkles,
-  CloudCheck,
-  Loader2,
-  Image as ImageIcon,
-  Wand2
+  Phone, 
+  Sparkles, 
+  CloudCheck, 
+  Loader2, 
+  Image as ImageIcon, 
+  Wand2,
+  KeyRound,
+  Lock,
+  Palette
 } from 'lucide-react';
 import { compressImage } from '../utils/imageCompressor.ts';
 import { convertLogoToWhiteWatermark } from '../utils/watermarkProcessor.ts';
+import { SecuritySettings } from './SecuritySettings.tsx';
 
 export const SystemSettings: React.FC = () => {
   const { branding, updateBranding, resetBrandingToDefaults, firestoreStatus } = useSystem();
+  const [activeTab, setActiveTab] = useState<'branding' | 'security'>('branding');
   const [phone, setPhone] = useState(branding.contactPhone);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -88,28 +93,61 @@ export const SystemSettings: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5 gap-4">
-        <div>
-          <h2 className="text-xl font-black text-white font-serif tracking-wide">
-            የሲስተም አርማዎችና ሰንደቅ አላማዎች ማስተካከያ (System Branding & Assets)
-          </h2>
-          <p className="text-xs text-slate-400">
-            አንዴ ያስገቧቸው ሎጎዎች፣ ሰንደቅ አላማዎችና ማህተሞች ሴቭ ሆነው ይቀመጣሉ፤ በተደጋጋሚ ማስገባት አይጠበቅብዎትም
-          </p>
-        </div>
+      {/* Top Tab Switcher */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('branding')}
+          className={`flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-black transition cursor-pointer ${
+            activeTab === 'branding'
+              ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
+              : 'bg-slate-900/80 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-800'
+          }`}
+        >
+          <Palette className="h-4 w-4" />
+          <span>የሲስተም አርማዎችና ሰንደቅ አላማዎች (Branding & Seals)</span>
+        </button>
 
         <button
-          onClick={() => {
-            if (confirm('ሁሉንም አርማዎችና ሰንደቅ አላማዎች ወደ ቀደመው ኦፊሴላዊ ቅርፅ መመለስ ይፈልጋሉ?')) {
-              resetBrandingToDefaults();
-              triggerSuccess();
-            }
-          }}
-          className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 transition"
+          type="button"
+          onClick={() => setActiveTab('security')}
+          className={`flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-black transition cursor-pointer ${
+            activeTab === 'security'
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+              : 'bg-slate-900/80 text-slate-400 hover:bg-slate-800 hover:text-white border border-slate-800'
+          }`}
         >
-          <RotateCcw className="h-4 w-4" /> ወደ ነባሪ መልስ (Reset Defaults)
+          <KeyRound className="h-4 w-4 text-amber-400" />
+          <span>የደህንነት፣ የተጠቃሚዎች እና የይለፍ ቃል ማስተዳደሪያ (Security & Credentials)</span>
         </button>
       </div>
+
+      {activeTab === 'security' ? (
+        <SecuritySettings />
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800 pb-5 gap-4">
+            <div>
+              <h2 className="text-xl font-black text-white font-serif tracking-wide">
+                የሲስተም አርማዎችና ሰንደቅ አላማዎች ማስተካከያ (System Branding & Assets)
+              </h2>
+              <p className="text-xs text-slate-400">
+                አንዴ ያስገቧቸው ሎጎዎች፣ ሰንደቅ አላማዎችና ማህተሞች ሴቭ ሆነው ይቀመጣሉ፤ በተደጋጋሚ ማስገባት አይጠበቅብዎትም
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                if (confirm('ሁሉንም አርማዎችና ሰንደቅ አላማዎች ወደ ቀደመው ኦፊሴላዊ ቅርፅ መመለስ ይፈልጋሉ?')) {
+                  resetBrandingToDefaults();
+                  triggerSuccess();
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 transition"
+            >
+              <RotateCcw className="h-4 w-4" /> ወደ ነባሪ መልስ (Reset Defaults)
+            </button>
+          </div>
 
       {isUploading && (
         <div className="flex items-center gap-2 rounded-2xl border border-amber-500/50 bg-amber-500/15 p-4 text-xs font-bold text-amber-300 shadow">
@@ -441,6 +479,8 @@ service cloud.firestore {
           </div>
         </details>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 };

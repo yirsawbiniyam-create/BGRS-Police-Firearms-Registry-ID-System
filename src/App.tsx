@@ -11,6 +11,7 @@ import { SystemSettings } from './components/SystemSettings.tsx';
 import { IdCardView } from './components/IdCardView.tsx';
 import { CertificateView } from './components/CertificateView.tsx';
 import { PublicVerificationView } from './components/PublicVerificationView.tsx';
+import { SystemDocumentation } from './components/SystemDocumentation.tsx';
 import { ArrowLeft, IdCard, FileText, Printer, CheckCircle } from 'lucide-react';
 
 type AppView = 
@@ -19,6 +20,7 @@ type AppView =
   | 'records' 
   | 'approvals' 
   | 'settings' 
+  | 'documentation'
   | 'viewIdCard' 
   | 'viewCertificate' 
   | 'editRegistration';
@@ -137,6 +139,13 @@ const MainApp: React.FC = () => {
         {/* VIEW 6: SYSTEM ASSETS & BRANDING SETTINGS */}
         {currentView === 'settings' && (
           <SystemSettings />
+        )}
+
+        {/* VIEW: OFFICIAL SYSTEM DOCUMENTATION */}
+        {currentView === 'documentation' && (
+          <SystemDocumentation
+            onBack={() => setCurrentView('dashboard')}
+          />
         )}
 
         {/* VIEW 7: ATM-SIZED ID CARD (FRONT & BACK) */}
