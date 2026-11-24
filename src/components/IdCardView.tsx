@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { FirearmRegistration, SystemBranding } from '../types/index.ts';
 import { FirearmLifecycleModal } from './FirearmLifecycleModal.tsx';
 import { encodeCode128B } from '../utils/barcode.ts';
+import { convertLogoToWhiteWatermark } from '../utils/watermarkProcessor.ts';
 import { Printer, ShieldCheck, AlertTriangle, Lock, Download, User, Scissors, Check, SlidersHorizontal, CreditCard, ArrowRightLeft, Archive, Phone } from 'lucide-react';
 
 interface IdCardViewProps {
@@ -27,7 +28,27 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
   const [showCropMarks, setShowCropMarks] = useState<boolean>(true);
   const [screenZoom, setScreenZoom] = useState<'atm' | 'large'>('atm');
   const [showLifecycleModal, setShowLifecycleModal] = useState<boolean>(false);
+  const [cleanWatermarkLogo, setCleanWatermarkLogo] = useState<string>('');
   const printContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    const src = branding.policeLogo || '';
+    if (!src || src.startsWith('data:image/svg+xml')) {
+      setCleanWatermarkLogo(src);
+      return;
+    }
+    convertLogoToWhiteWatermark(src)
+      .then((res) => {
+        if (active) setCleanWatermarkLogo(res || src);
+      })
+      .catch(() => {
+        if (active) setCleanWatermarkLogo(src);
+      });
+    return () => {
+      active = false;
+    };
+  }, [branding.policeLogo]);
 
   // Check if expired: expiry date < today
   const isExpired = new Date(registration.expiryDate) < new Date();
@@ -79,7 +100,7 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
       style={{
         width: '420px',
         height: '265px',
-        background: 'linear-gradient(100deg, #163d73 0%, #1e4f91 38%, #2a63ad 56%, #88aedb 67%, #e7eef6 75%, #f8f9fb 85%, #ffffff 100%)',
+        background: 'linear-gradient(100deg, #98bce4 0%, #b1cfee 36%, #cbe0f5 56%, #e7f0f9 68%, #f7f9fc 78%, #ffffff 90%, #ffffff 100%)',
         boxSizing: 'border-box',
       }}
     >
@@ -89,12 +110,12 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 140px 150px at 85% 52%, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.9) 55%, transparent 100%)',
+            'radial-gradient(ellipse 140px 150px at 85% 52%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.9) 55%, transparent 100%)',
         }}
       />
       
       {/* Subtle Security Guilloche Pattern Overlay */}
-      <div className="pointer-events-none absolute inset-0 security-pattern opacity-20" />
+      <div className="pointer-events-none absolute inset-0 security-pattern opacity-15" />
 
       {/* Unapproved watermark overlay */}
       {!isApproved && (
@@ -144,20 +165,20 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
               </div>
             </div>
 
-            {/* Center: Crisp Circular Police Logo (Zero Scale Blur, Zero Text Clipping) & Commission Title */}
+            {/* Center: Strictly Circular Police Logo Filling Its Circle & Commission Title */}
             <div className="flex items-center justify-center gap-2 px-1 min-w-0">
-              <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full border-[1.5px] border-amber-300 bg-white shadow-md">
+              <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-full border-[1.5px] border-amber-300 bg-white shadow-md">
                 <img 
                   src={branding.policeLogo} 
                   alt="Police Logo" 
-                  className="h-full w-full rounded-full object-contain" 
+                  className="h-full w-full rounded-full object-cover object-center" 
                 />
               </div>
               <div className="flex flex-col items-center text-center min-w-0">
                 <span className="text-[9px] font-black tracking-wide text-amber-300 font-serif leading-tight drop-shadow-xs">
                   {branding.commissionNameAm}
                 </span>
-                <span className="text-[7.5px] font-extrabold text-white tracking-tight">
+                <span className="text-[7.5px] font-extrabold text-sky-200 tracking-tight">
                   የጦር መሳሪያ ፈቃድ መታወቂያ
                 </span>
               </div>
@@ -176,18 +197,18 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
           </div>
         </div>
 
-        {/* 2. Middle Body: Left Uncropped Data + Raised Gold ID & Phone Strip, Right Uncropped Portrait + Serial Barcode */}
-        <div className="flex flex-1 items-stretch justify-between gap-1.5 px-3 py-1 min-h-0">
-          {/* Left Details Column - Zero Truncation, Wraps Cleanly */}
-          <div className="flex flex-1 flex-col justify-start gap-[3px] min-w-0 pt-0.5">
+        {/* 2. Middle Body: Left Spacious Bold Non-White Colored Data + Raised Gold ID & Phone Strip, Right Uncropped Portrait + Serial Barcode */}
+        <div className="flex flex-1 items-stretch justify-between gap-1 px-2.5 py-1 min-h-0">
+          {/* Left Details Column - Spacious, Slightly Larger Text Extending Downward to Barcode Level */}
+          <div className="flex flex-1 flex-col justify-between min-w-0 pt-0.5 pb-0.5">
             {/* Raised Top Highlight Row: Distinct Gold-Embossed ID Card Number + Paired Phone Number */}
-            <div className="flex flex-wrap items-center justify-between gap-1 pb-0.5 border-b border-amber-300/35">
+            <div className="flex flex-wrap items-center justify-between gap-1 pb-1 border-b border-blue-900/25">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[7.5px] font-black text-amber-200 tracking-tight">
+                <span className="text-[8px] font-black text-[#092147] tracking-tight">
                   መታወቂያ ቁጥር፡
                 </span>
                 <span
-                  className="inline-block rounded-md border border-yellow-100/90 px-2 py-0.5 font-serif text-[10.5px] font-black tracking-[0.08em] text-[#7c1111] shadow-md"
+                  className="inline-block rounded-md border border-amber-700/60 px-2 py-0.5 font-serif text-[10.5px] font-black tracking-[0.08em] text-[#7c1111] shadow-sm"
                   style={{
                     background: 'linear-gradient(135deg, #fef08a 0%, #facc15 50%, #f59e0b 100%)',
                   }}
@@ -196,51 +217,62 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
                 </span>
               </div>
               {registration.phoneNumber && (
-                <span className="inline-flex items-center gap-1 rounded-md border border-cyan-200/55 bg-slate-950/35 px-1.5 py-0.5 font-mono text-[8px] font-extrabold text-cyan-100 shadow-2xs">
-                  <Phone className="h-2.5 w-2.5 text-amber-300 flex-shrink-0" />
+                <span className="inline-flex items-center gap-1 rounded-md border border-blue-900/35 bg-white/80 px-1.5 py-0.5 font-mono text-[8px] font-black text-[#0a234f] shadow-2xs">
+                  <Phone className="h-2.5 w-2.5 text-blue-800 flex-shrink-0" />
                   <span>{registration.phoneNumber}</span>
                 </span>
               )}
             </div>
 
-            {/* Full Name (Uncropped, full width) */}
-            <div className="text-[9px] leading-[1.22] break-words whitespace-normal">
-              <span className="font-extrabold text-amber-200 mr-1">ሙሉ ስም፡</span>
-              <span className="font-black text-white text-[10.5px] drop-shadow-2xs">
-                {registration.fullName}
-              </span>
-            </div>
+            {/* Spaced Data Rows Distributed Downward to Align With Barcode — Smaller Blue Labels vs Larger Bold Distinct-Color Answers */}
+            <div className="flex flex-1 flex-col justify-evenly pt-1 pb-0.5 gap-1">
+              {/* Full Name */}
+              <div className="leading-[1.24] break-words whitespace-normal">
+                <span className="text-[7.5px] font-bold text-[#1e3a8a] mr-1">ሙሉ ስም፡</span>
+                <span className="text-[11.5px] font-black text-[#7f1d1d]">
+                  {registration.fullName}
+                </span>
+              </div>
 
-            {/* Address (Uncropped, wraps cleanly) */}
-            <div className="text-[8px] leading-[1.2] break-words whitespace-normal">
-              <span className="font-extrabold text-amber-200 mr-1">አድራሻ፡</span>
-              <span className="font-bold text-white">
-                {registration.region}፣ {registration.zone}፣ {registration.woreda}፣ {registration.kebele}
-                {registration.houseNumber ? ` (ቤ/ቁ ${registration.houseNumber})` : ''}
-              </span>
-            </div>
+              {/* Address */}
+              <div className="leading-[1.24] break-words whitespace-normal">
+                <span className="text-[7.5px] font-bold text-[#1e3a8a] mr-1">አድራሻ፡</span>
+                <span className="text-[9.5px] font-black text-slate-950">
+                  {registration.region}፣ {registration.zone}፣ {registration.woreda}፣ {registration.kebele}
+                  {registration.houseNumber ? ` (ቤ/ቁ ${registration.houseNumber})` : ''}
+                </span>
+              </div>
 
-            {/* Work & Responsibility (Uncropped) */}
-            <div className="text-[8px] leading-[1.2] break-words whitespace-normal">
-              <span className="font-extrabold text-amber-200 mr-1">ስራ/ሃላፊነት፡</span>
-              <span className="text-slate-100 font-bold">
-                {registration.occupation} ({registration.positionRole || 'የግል'})
-              </span>
-            </div>
+              {/* Work & Responsibility */}
+              <div className="leading-[1.24] break-words whitespace-normal">
+                <span className="text-[7.5px] font-bold text-[#1e3a8a] mr-1">ስራ/ሃላፊነት፡</span>
+                <span className="text-[9.5px] font-black text-[#4c1d95]">
+                  {registration.occupation} ({registration.positionRole || 'የግል'})
+                </span>
+              </div>
 
-            {/* Firearm Type, Ammo & Ownership (Uncropped) */}
-            <div className="text-[8px] leading-[1.2] break-words whitespace-normal">
-              <span className="font-extrabold text-amber-200 mr-1">መሳሪያ/ጥይት፡</span>
-              <span className="font-black text-emerald-200 drop-shadow-2xs">
-                {registration.firearmType} • ጥይት: {registration.bulletCount} • ካርታ: {registration.magazineCount} ({registration.ownership})
-              </span>
+              {/* Firearm Type on Its Own Separate Line */}
+              <div className="leading-[1.24] break-words whitespace-normal">
+                <span className="text-[7.5px] font-bold text-[#1e3a8a] mr-1">መሳሪያ፡</span>
+                <span className="text-[9.5px] font-black text-[#064e3b]">
+                  {registration.firearmType} ({registration.ownership})
+                </span>
+              </div>
+
+              {/* Bullets & Magazines on Its Own Separate Line Below */}
+              <div className="leading-[1.24] break-words whitespace-normal">
+                <span className="text-[7.5px] font-bold text-[#1e3a8a] mr-1">ጥይት/ካርታ፡</span>
+                <span className="text-[9.5px] font-black text-[#9a3412]">
+                  ጥይት: {registration.bulletCount} • ካርታ: {registration.magazineCount}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Right Side: Full Uncropped Portrait + Firearm Serial Number Barcode Underneath */}
-          <div className="relative flex w-[104px] flex-shrink-0 flex-col items-center justify-between py-0.5">
+          <div className="relative flex w-[96px] flex-shrink-0 flex-col items-center justify-between py-0.5">
             {/* Uncropped Portrait Photo */}
-            <div className="relative h-[112px] w-[100px] flex items-center justify-center">
+            <div className="relative h-[112px] w-[94px] flex items-center justify-center">
               {registration.photoUrl ? (
                 <img 
                   src={registration.photoUrl} 
@@ -257,7 +289,7 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
             {/* Firearm Serial Number Barcode + Stylized Text Directly Under Photo */}
             <div className="flex w-full flex-col items-center">
-              <div className="w-[100px] rounded-sm border border-slate-300/75 bg-white/95 px-1 py-[2px] shadow-2xs">
+              <div className="w-[94px] rounded-sm border border-slate-300/75 bg-white/95 px-1 py-[2px] shadow-2xs">
                 <svg
                   viewBox={`0 0 ${serialBarcode.totalWidth} 24`}
                   className="block h-[14px] w-full"
@@ -360,16 +392,16 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
       {/* Outer Border */}
       <div className="pointer-events-none absolute inset-0 rounded-2xl border-[3px] border-amber-600/40" />
 
-      {/* Central Watermark: Enlarged Police Logo with Pure White Background (ተለቅ ያለ ደማቅ ዋተርማርክ) */}
-      <div 
-        className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.28] mix-blend-multiply"
-        style={{
-          backgroundImage: `url(${branding.watermarkLogo || branding.policeLogo})`,
-          backgroundPosition: 'center',
-          backgroundSize: '78%',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
+      {/* Central Watermark: Normal Police Logo Inside a Pure White Circle, Bold & Clear */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.36]">
+        <div className="h-48 w-48 overflow-hidden rounded-full bg-white flex items-center justify-center">
+          <img
+            src={cleanWatermarkLogo || branding.policeLogo}
+            alt="Police Logo Watermark"
+            className="h-full w-full rounded-full object-cover object-center mix-blend-multiply"
+          />
+        </div>
+      </div>
 
       {/* Expired Warning Watermark Overlay in Red */}
       {(isExpired || isSuspended) && (
