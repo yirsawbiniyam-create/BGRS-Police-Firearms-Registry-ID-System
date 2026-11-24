@@ -67,34 +67,42 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
   // =========================================================================
   // RENDER: FRONT SIDE (የፊት ገጽ)
-  // No white text! All labels & values in bold amber, gold, and vibrant colors.
+  // Light, authoritative background transitioning to soft whitish around the
+  // portrait so all text stays crisp and the photo blends seamlessly without a box.
   // =========================================================================
   const renderFrontCard = () => (
     <div 
-      className="relative overflow-hidden rounded-2xl shadow-2xl border-2 border-amber-500/90 select-none"
+      className="relative overflow-hidden rounded-2xl shadow-2xl border-2 border-amber-600/80 select-none"
       style={{
         width: '420px',
         height: '265px',
-        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 45%, #1e1b4b 100%)',
+        background: 'linear-gradient(118deg, #cfd9e6 0%, #dce4ef 34%, #e9edf2 62%, #f1efe9 82%, #f4f2ec 100%)',
         boxSizing: 'border-box',
       }}
     >
-      {/* Golden Metallic Border & Radial Accents */}
-      <div className="pointer-events-none absolute inset-0 rounded-2xl border-[3px] border-amber-400/90 shadow-inner" />
-      <div className="pointer-events-none absolute -top-24 -left-24 h-48 w-48 rounded-full bg-amber-500/15 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-24 -right-24 h-48 w-48 rounded-full bg-amber-500/15 blur-2xl" />
+      {/* Subtle Golden Metallic Frame & Soft Whitish Aura Around Photo Zone */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl border-[2.5px] border-amber-500/75 shadow-inner" />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 160px 150px at 84% 52%, rgba(244, 242, 236, 0.96) 0%, rgba(241, 239, 233, 0.65) 55%, transparent 100%)',
+        }}
+      />
+      <div className="pointer-events-none absolute -top-20 -left-20 h-44 w-44 rounded-full bg-blue-900/10 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-20 -right-20 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
       
-      {/* Security Guilloche Pattern Overlay (No watermark logo on front) */}
-      <div className="pointer-events-none absolute inset-0 security-pattern opacity-30" />
+      {/* Security Guilloche Pattern Overlay */}
+      <div className="pointer-events-none absolute inset-0 security-pattern opacity-50" />
 
       {/* Unapproved watermark overlay */}
       {!isApproved && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rotate-[-20deg]">
-          <div className="border-2 border-amber-400/80 bg-black/85 px-4 py-1.5 rounded-lg text-center shadow-2xl">
-            <span className="text-xs font-black text-amber-300 tracking-wider">
+          <div className="border-2 border-amber-600 bg-white/92 px-4 py-1.5 rounded-lg text-center shadow-2xl">
+            <span className="text-xs font-black text-amber-900 tracking-wider">
               የሃላፊውን ማጽደቅ በመጠባበቅ ላይ
             </span>
-            <p className="text-[7.5px] font-bold text-amber-100">
+            <p className="text-[7.5px] font-bold text-slate-800">
               እስኪጸድቅ ድረስ ፕሪንት ማድረግ የተከለከለ ነው
             </p>
           </div>
@@ -104,11 +112,11 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
       {/* Surrendered watermark overlay */}
       {isSurrendered && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rotate-[-15deg]">
-          <div className="border-2 border-rose-500 bg-rose-950/92 px-4 py-1.5 rounded-xl text-center shadow-2xl">
-            <span className="text-xs font-black text-rose-200 tracking-wider">
+          <div className="border-2 border-rose-600 bg-rose-50/95 px-4 py-1.5 rounded-xl text-center shadow-2xl">
+            <span className="text-xs font-black text-rose-800 tracking-wider">
               ይህ መሳሪያ ገቢ ተደርጓል (በግምጃ ቤት)
             </span>
-            <p className="text-[7.5px] font-bold text-rose-300">
+            <p className="text-[7.5px] font-bold text-rose-700">
               {registration.surrenderReason ? `ምክንያት፡ ${registration.surrenderReason}` : 'በፖሊስ ግምጃ ቤት ተረክቧል'}
             </p>
           </div>
@@ -118,10 +126,10 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
       <div className="relative z-10 flex h-full flex-col justify-between p-3.5">
         {/* 1. Header: Left BGRS Flag, Center Police Crest & Titles, Right Ethiopian Flag */}
         <div>
-          <div className="flex items-center justify-between border-b border-amber-400/40 pb-1.5">
+          <div className="flex items-center justify-between border-b-2 border-amber-600/45 pb-1.5">
             {/* Left: Benishangul Gumuz Flag */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <div className="h-6 w-10 overflow-hidden rounded shadow border border-amber-300/40">
+              <div className="h-6 w-10 overflow-hidden rounded shadow-sm border border-slate-500/50">
                 <img 
                   src={branding.bgrsFlag} 
                   alt="BGRS Flag" 
@@ -130,28 +138,28 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
               </div>
             </div>
 
-            {/* Center: Police Logo between flags with Commission Title (መሀል ላይ ያለዉ የፖሊስ ሎጎ እንዳለ) */}
+            {/* Center: Police Logo between flags with Commission Title */}
             <div className="flex items-center justify-center gap-2 px-1">
-              <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full border border-amber-300/60 bg-white/10 p-0.5 shadow-sm">
+              <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full border border-amber-700/50 bg-white/70 p-0.5 shadow-sm">
                 <img 
                   src={branding.policeLogo} 
                   alt="Police Logo" 
-                  className="h-full w-full object-contain filter drop-shadow" 
+                  className="h-full w-full object-contain" 
                 />
               </div>
               <div className="flex flex-col items-center text-center">
-                <span className="text-[9.5px] font-extrabold tracking-wide text-amber-300 drop-shadow-sm font-serif leading-tight">
+                <span className="text-[9.5px] font-black tracking-wide text-slate-950 font-serif leading-tight">
                   {branding.commissionNameAm}
                 </span>
-                <span className="text-[8px] font-bold text-amber-200/90 tracking-tight">
-                  የጦር መሳሪያ ፈቃድ ወረቀት
+                <span className="text-[8px] font-extrabold text-amber-900 tracking-tight">
+                  የጦር መሳሪያ ፈቃድ መታወቂያ
                 </span>
               </div>
             </div>
 
             {/* Right: Ethiopian Flag */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <div className="h-6 w-10 overflow-hidden rounded shadow border border-amber-300/40">
+              <div className="h-6 w-10 overflow-hidden rounded shadow-sm border border-slate-500/50">
                 <img 
                   src={branding.ethiopiaFlag} 
                   alt="Ethiopia Flag" 
@@ -162,28 +170,28 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
           </div>
         </div>
 
-        {/* 2. Middle Body: Left Data Columns, Right 3x4 Passport Photo */}
-        <div className="mt-1 flex flex-1 items-center justify-between gap-2">
-          {/* Left Details Grid (All values in bold vibrant amber/gold/emerald - No white text!) */}
+        {/* 2. Middle Body: Left Data Columns (Crisp Dark Ink), Right Blended Portrait (No Rectangular Box) */}
+        <div className="mt-1 flex flex-1 items-center justify-between gap-1.5">
+          {/* Left Details Grid - High-contrast dark ink on light slate/off-white background */}
           <div className="flex flex-1 flex-col justify-center space-y-0.5 text-[9.5px]">
             {/* ID Number */}
             <div className="flex items-center gap-1">
-              <span className="font-extrabold text-amber-400">መታወቂያ ቁጥር፡</span>
-              <span className="font-black text-amber-300 tracking-wider font-mono text-[10.5px] bg-amber-500/25 px-1.5 py-0.5 rounded border border-amber-400/50 shadow-sm">
+              <span className="font-extrabold text-blue-950">መታወቂያ ቁጥር፡</span>
+              <span className="font-black text-slate-950 tracking-wider font-mono text-[10.5px] bg-amber-300/65 px-1.5 py-0.5 rounded border border-amber-700/45 shadow-2xs">
                 {registration.idCardNumber}
               </span>
             </div>
 
             {/* Full Name & Phone */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1 truncate max-w-[190px]">
-                <span className="font-extrabold text-amber-300">ሙሉ ስም፡</span>
-                <span className="font-black text-amber-200 text-[11px] truncate drop-shadow-sm">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex items-center gap-1 truncate max-w-[188px]">
+                <span className="font-extrabold text-blue-950">ሙሉ ስም፡</span>
+                <span className="font-black text-slate-950 text-[11px] truncate">
                   {registration.fullName}
                 </span>
               </div>
               {registration.phoneNumber && (
-                <span className="font-mono text-[8px] text-amber-300 font-bold bg-black/40 px-1 py-0.2 rounded border border-amber-400/30">
+                <span className="font-mono text-[8px] text-slate-950 font-extrabold bg-white/70 px-1 py-0.2 rounded border border-slate-400/60">
                   {registration.phoneNumber}
                 </span>
               )}
@@ -191,63 +199,68 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
             {/* Address */}
             <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-amber-400">አድራሻ፡</span>
-              <span className="font-bold text-amber-100 truncate max-w-[205px]">
+              <span className="font-extrabold text-blue-950">አድራሻ፡</span>
+              <span className="font-bold text-slate-900 truncate max-w-[205px]">
                 {registration.region}፣ {registration.zone}፣ {registration.woreda}፣ {registration.kebele}
               </span>
             </div>
 
             {/* Work & Responsibility */}
             <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-amber-300">ስራ/ሃላፊነት፡</span>
-              <span className="text-amber-100 font-extrabold truncate max-w-[180px]">
+              <span className="font-extrabold text-blue-950">ስራ/ሃላፊነት፡</span>
+              <span className="text-slate-900 font-bold truncate max-w-[180px]">
                 {registration.occupation} ({registration.positionRole || 'የግል'})
               </span>
             </div>
 
             {/* Firearm Type & Ammo */}
             <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-amber-400">መሳሪያ/ጥይት፡</span>
-              <span className="font-black text-emerald-300 truncate max-w-[180px]">
+              <span className="font-extrabold text-blue-950">መሳሪያ/ጥይት፡</span>
+              <span className="font-black text-emerald-900 truncate max-w-[180px]">
                 {registration.firearmType} • ጥይት: {registration.bulletCount}
               </span>
             </div>
 
             {/* Serial No & Ownership */}
             <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-amber-300">ንምራ ቁጥር፡</span>
-              <span className="font-mono font-black text-amber-200 tracking-wider bg-slate-900/70 px-1.5 py-0.5 rounded border border-amber-400/40">
+              <span className="font-extrabold text-blue-950">ንምራ ቁጥር፡</span>
+              <span className="font-mono font-black text-slate-950 tracking-wider bg-white/75 px-1.5 py-0.5 rounded border border-slate-500/45">
                 {registration.serialNumber} ({registration.ownership})
               </span>
             </div>
           </div>
 
-          {/* Right Side: 3x4 Passport Photo */}
-          <div className="flex flex-col items-center">
-            <div className="relative h-28 w-21 overflow-hidden rounded-md border-2 border-amber-400 bg-white p-0.5 shadow-md">
+          {/* Right Side: Seamless Borderless Portrait Blended Into Whitish Background */}
+          <div className="relative flex flex-col items-center justify-center flex-shrink-0 -mr-1">
+            <div
+              className="relative h-[120px] w-[96px] flex items-center justify-center"
+              style={{
+                maskImage:
+                  'radial-gradient(ellipse 68% 72% at 50% 48%, #000000 54%, rgba(0,0,0,0.68) 74%, rgba(0,0,0,0) 100%)',
+                WebkitMaskImage:
+                  'radial-gradient(ellipse 68% 72% at 50% 48%, #000000 54%, rgba(0,0,0,0.68) 74%, rgba(0,0,0,0) 100%)',
+              }}
+            >
               {registration.photoUrl ? (
                 <img 
                   src={registration.photoUrl} 
                   alt={registration.fullName}
-                  className="h-full w-full object-cover rounded-sm" 
+                  className="h-full w-full object-cover object-top mix-blend-multiply contrast-105" 
                 />
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center bg-slate-800 text-amber-300 rounded-sm">
-                  <User className="h-10 w-10 text-amber-400/80" />
-                  <span className="text-[6.5px] font-bold text-amber-200 mt-0.5">የፎቶ ቦታ</span>
+                <div className="flex h-full w-full flex-col items-center justify-center text-slate-500">
+                  <User className="h-12 w-12 text-slate-500/75" />
+                  <span className="text-[7px] font-bold text-slate-600 mt-0.5">ፎቶ የለም</span>
                 </div>
               )}
-              {/* Hologram Simulated Badge in Corner of Photo */}
-              <div className="pointer-events-none absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border border-amber-300/80 bg-gradient-to-tr from-amber-400 to-sky-300 opacity-80" />
             </div>
-            <span className="mt-0.5 text-[7px] font-bold text-amber-300">
-              3x4 ጉርድ ፎቶ
-            </span>
+            {/* Subtle Security Micro-Emblem Overlay at lower corner of portrait */}
+            <div className="pointer-events-none absolute bottom-1 right-1 h-4 w-4 rounded-full border border-amber-700/40 bg-gradient-to-tr from-amber-400/45 to-sky-300/45 opacity-75" />
           </div>
         </div>
 
-        {/* 3. Bottom: Signatures and Expiry */}
-        <div className="mt-0.5 flex items-end justify-between border-t border-amber-400/40 pt-1 text-[8px]">
+        {/* 3. Bottom: Signatures (Natural Dark Ink) and Expiry */}
+        <div className="mt-0.5 flex items-end justify-between border-t-2 border-amber-600/40 pt-1 text-[8px]">
           {/* Owner Signature */}
           <div className="flex flex-col items-center">
             <div className="h-6 w-20 flex items-center justify-center">
@@ -255,21 +268,23 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
                 <img 
                   src={registration.ownerSignature} 
                   alt="Owner Signature" 
-                  className="max-h-full max-w-full object-contain filter invert drop-shadow" 
+                  className="max-h-full max-w-full object-contain mix-blend-multiply contrast-125" 
                 />
               ) : (
-                <span className="text-[7.5px] italic text-amber-300/80 font-mono font-bold">ተፈርሟል</span>
+                <span className="text-[7.5px] italic text-slate-700 font-mono font-bold">ተፈርሟል</span>
               )}
             </div>
-            <span className="font-extrabold text-amber-300 text-[7.5px]">
+            <span className="font-extrabold text-slate-900 text-[7.5px]">
               የባለመሳሪያው ፊርማ
             </span>
           </div>
 
           {/* Validity Expiry Indicator */}
           <div className="flex flex-col items-center text-center">
-            <span className="text-[7.5px] font-extrabold text-amber-300">የሚያበቃበት፡ {registration.expiryDate}</span>
-            <span className="text-[6.5px] font-mono font-black text-amber-400 tracking-widest">
+            <span className={`text-[7.5px] font-black ${isExpired ? 'text-red-700' : 'text-blue-950'}`}>
+              የሚያበቃበት፡ {registration.expiryDate}
+            </span>
+            <span className="text-[6.5px] font-mono font-black text-amber-900 tracking-widest">
               BENISHANGUL GUMUZ POLICE
             </span>
           </div>
@@ -281,13 +296,13 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
                 <img 
                   src={registration.approverSignature || branding.defaultApproverSignature} 
                   alt="Approver Signature" 
-                  className="max-h-full max-w-full object-contain filter invert drop-shadow" 
+                  className="max-h-full max-w-full object-contain mix-blend-multiply contrast-125" 
                 />
               ) : (
-                <span className="text-[7px] text-amber-300/80 italic font-bold">ይጸድቃል</span>
+                <span className="text-[7px] text-amber-900 italic font-bold">ይጸድቃል</span>
               )}
             </div>
-            <span className="font-extrabold text-amber-300 text-[7.5px]">
+            <span className="font-extrabold text-slate-900 text-[7.5px]">
               የሃላፊው ፊርማ
             </span>
           </div>
