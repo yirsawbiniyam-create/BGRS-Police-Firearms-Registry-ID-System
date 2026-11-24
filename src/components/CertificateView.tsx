@@ -35,6 +35,10 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   )}`;
 
   useEffect(() => {
+    if (!isApproved) {
+      setCertQrUrl('');
+      return;
+    }
     QRCode.toDataURL(verificationUrl, {
       width: 260,
       margin: 1,
@@ -46,7 +50,7 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
     })
       .then((url) => setCertQrUrl(url))
       .catch((err) => console.error('Failed to generate Certificate QR code', err));
-  }, [verificationUrl, registration.idCardNumber]);
+  }, [verificationUrl, registration.idCardNumber, isApproved]);
 
   const handlePrint = () => {
     window.print();
@@ -265,16 +269,24 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
                 </div>
               </div>
 
-              {/* Scannable Real-Time Authenticity QR Code */}
+              {/* Scannable Real-Time Authenticity QR Code (Hidden until Approved) */}
               <div className="flex flex-col items-center">
-                <div className="h-12 w-12 overflow-hidden rounded border border-slate-400 bg-white p-0.5 shadow-sm">
-                  {certQrUrl ? (
-                    <img src={certQrUrl} alt="Certificate QR Code" className="h-full w-full object-contain" />
-                  ) : (
-                    <div className="h-full w-full bg-slate-200 animate-pulse" />
-                  )}
-                </div>
-                <span className="text-[7px] font-bold text-slate-600">ስካን ማረጋገጫ</span>
+                {isApproved ? (
+                  <div className="h-12 w-12 overflow-hidden rounded border border-slate-400 bg-white p-0.5 shadow-sm">
+                    {certQrUrl ? (
+                      <img src={certQrUrl} alt="Certificate QR Code" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="h-full w-full bg-slate-200 animate-pulse" />
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-12 w-12 overflow-hidden rounded border border-dashed border-amber-600 bg-amber-50 p-1 shadow-sm flex items-center justify-center">
+                    <Lock className="h-4 w-4 text-amber-700" />
+                  </div>
+                )}
+                <span className="text-[7px] font-bold text-slate-600">
+                  {isApproved ? 'ስካን ማረጋገጫ' : 'ያልጸደቀ'}
+                </span>
               </div>
             </div>
           </div>

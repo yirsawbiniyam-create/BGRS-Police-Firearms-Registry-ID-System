@@ -1,19 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FirearmRegistration, SystemBranding } from '../types/index.ts';
-import { 
-  ShieldCheck, 
-  ShieldAlert, 
-  AlertTriangle, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  IdCard, 
-  FileText,
-  Lock,
-  PhoneCall
-} from 'lucide-react';
+import { ShieldAlert, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { IdCardView } from './IdCardView.tsx';
-import { CertificateView } from './CertificateView.tsx';
 import { db } from '../firebase.ts';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
@@ -31,43 +19,34 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
   const [record, setRecord] = useState<FirearmRegistration | null>(initialRegistration);
   const [branding, setBranding] = useState<SystemBranding>(initialBranding);
   const [isLoading, setIsLoading] = useState<boolean>(!initialRegistration);
-  const [activeTab, setActiveTab] = useState<'idCard' | 'certificate'>('idCard');
 
-  // Direct Firestore real-time lookup when scanned on another device or phone
+  // Fast live lookup from Firestore so status (approved / expired / suspended / deleted) is always real-time
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchFromFirestore() {
-      // 1. Fetch latest branding (Logos & Flags) from Firestore
-      try {
-        const brandingSnap = await getDoc(doc(db, 'system_config', 'branding'));
-        if (brandingSnap.exists() && isMounted) {
-          setBranding((prev) => ({ ...prev, ...(brandingSnap.data() as SystemBranding) }));
-        }
-      } catch (e) {
-        console.warn('Branding fetch notice:', e);
-      }
-
-      // 2. If record is already provided, no need to query records
-      if (initialRegistration) {
-        if (isMounted) setIsLoading(false);
-        return;
-      }
-
-      // 3. Query firearms_records collection for this ID number
+    async function verifyLiveFromFirestore() {
       try {
         const cleanId = decodeURIComponent(idNumber).trim();
         const normalizedId = cleanId.replace(/ቤጌፖ/g, 'ቤጉፖ');
         const legacyId = cleanId.replace(/ቤጉፖ/g, 'ቤጌፖ');
+        const candidates = Array.from(new Set([normalizedId, cleanId, legacyId]));
         const recordsCol = collection(db, 'firearms_records');
 
-        // Try searching by idCardNumber (updated and legacy prefix)
-        for (const candidateId of Array.from(new Set([normalizedId, cleanId, legacyId]))) {
-          const q = query(recordsCol, where('idCardNumber', '==', candidateId));
-          const querySnap = await getDocs(q);
+        // Fetch branding + matching record in parallel for instant response
+        const [brandingSnap, ...querySnaps] = await Promise.all([
+          getDoc(doc(db, 'system_config', 'branding')).catch(() => null),
+          ...candidates.map((cand) => getDocs(query(recordsCol, where('idCardNumber', '==', cand)))),
+        ]);
 
-          if (!querySnap.empty && isMounted) {
-            const found = querySnap.docs[0].data() as FirearmRegistration;
+        if (!isMounted) return;
+
+        if (brandingSnap && brandingSnap.exists()) {
+          setBranding((prev) => ({ ...prev, ...(brandingSnap.data() as SystemBranding) }));
+        }
+
+        for (const snap of querySnaps) {
+          if (!snap.empty) {
+            const found = snap.docs[0].data() as FirearmRegistration;
             const normalizedFound = found.idCardNumber?.includes('ቤጌፖ')
               ? { ...found, idCardNumber: found.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') }
               : found;
@@ -77,10 +56,10 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
           }
         }
 
-        // Try direct document ID
-        const docSnap = await getDoc(doc(db, 'firearms_records', cleanId));
-        if (docSnap.exists() && isMounted) {
-          const found = docSnap.data() as FirearmRegistration;
+        // Direct document ID check
+        const directSnap = await getDoc(doc(db, 'firearms_records', cleanId)).catch(() => null);
+        if (directSnap && directSnap.exists() && isMounted) {
+          const found = directSnap.data() as FirearmRegistration;
           const normalizedFound = found.idCardNumber?.includes('ቤጌፖ')
             ? { ...found, idCardNumber: found.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') }
             : found;
@@ -89,364 +68,104 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
           return;
         }
 
-        // Try case-insensitive or certNumber match from all records
-        const allSnap = await getDocs(recordsCol);
-        if (!allSnap.empty && isMounted) {
-          let matched: FirearmRegistration | null = null;
-          allSnap.forEach((d) => {
-            const data = d.data() as FirearmRegistration;
-            const recIdLower = (data.idCardNumber || '').toLowerCase();
-            const recIdNorm = recIdLower.replace(/ቤጌፖ/g, 'ቤጉፖ');
-            if (
-              recIdLower === cleanId.toLowerCase() ||
-              recIdNorm === normalizedId.toLowerCase() ||
-              data.certNumber?.toLowerCase() === cleanId.toLowerCase() ||
-              data.serialNumber?.toLowerCase() === cleanId.toLowerCase()
-            ) {
-              matched = data.idCardNumber?.includes('ቤጌፖ')
-                ? { ...data, idCardNumber: data.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') }
-                : data;
+        // Fallback case-insensitive check only if not already resolved
+        if (!initialRegistration) {
+          const allSnap = await getDocs(recordsCol);
+          if (!allSnap.empty && isMounted) {
+            let matched: FirearmRegistration | null = null;
+            allSnap.forEach((d) => {
+              const data = d.data() as FirearmRegistration;
+              const recIdLower = (data.idCardNumber || '').toLowerCase();
+              const recIdNorm = recIdLower.replace(/ቤጌፖ/g, 'ቤጉፖ');
+              if (
+                recIdLower === cleanId.toLowerCase() ||
+                recIdNorm === normalizedId.toLowerCase()
+              ) {
+                matched = data.idCardNumber?.includes('ቤጌፖ')
+                  ? { ...data, idCardNumber: data.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') }
+                  : data;
+              }
+            });
+            if (matched) {
+              setRecord(matched);
             }
-          });
-          if (matched) {
-            setRecord(matched);
-            setIsLoading(false);
-            return;
           }
         }
       } catch (err) {
-        console.error('Firestore record verification query notice:', err);
+        console.error('Verification lookup notice:', err);
       } finally {
         if (isMounted) setIsLoading(false);
       }
     }
 
-    fetchFromFirestore();
+    verifyLiveFromFirestore();
 
     return () => {
       isMounted = false;
     };
   }, [idNumber, initialRegistration]);
 
-  // Loading state with police commission flags and logo
+  // 1. Minimal Fast Loading Screen (View-only, zero navigation)
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-4 text-white">
-        <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/90 p-8 text-center shadow-2xl backdrop-blur-md">
-          {/* Header with flags and logo during loading */}
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
-              <img src={branding.bgrsFlag} alt="BGRS Flag" className="h-full w-full object-cover" />
-            </div>
-            <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-amber-400/70 bg-white shadow">
-              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full rounded-full object-contain" />
-            </div>
-            <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
-              <img src={branding.ethiopiaFlag} alt="Ethiopia Flag" className="h-full w-full object-cover" />
-            </div>
-          </div>
-
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 mb-4">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-          <h2 className="text-lg font-black text-amber-400 font-serif">
-            የጦር መሳሪያ ሰነድ ከዳታቤዝ በመፈለግ ላይ...
-          </h2>
-          <p className="mt-2 text-xs text-slate-400 font-mono">
-            መታወቂያ ቁጥር፡ {decodeURIComponent(idNumber)}
-          </p>
-          <p className="mt-1 text-[11px] text-slate-500">
-            ከቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን ደመና ዳታቤዝ (Cloud Firestore) በማረጋገጥ ላይ...
-          </p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-white select-none">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Loader2 className="h-9 w-9 animate-spin text-amber-400" />
+          <span className="text-sm font-black text-amber-300">በማረጋገጥ ላይ...</span>
         </div>
       </div>
     );
   }
 
-  // Not found state (still shows flags and logo!)
-  if (!record) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-4 text-white">
-        <div className="w-full max-w-md rounded-3xl border border-rose-800 bg-slate-900/95 p-8 text-center shadow-2xl backdrop-blur-md">
-          {/* Top flags and institutional logo */}
-          <div className="flex items-center justify-center gap-3 mb-5 border-b border-slate-800 pb-4">
-            <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
-              <img src={branding.bgrsFlag} alt="BGRS Flag" className="h-full w-full object-cover" />
-            </div>
-            <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-amber-400/70 bg-white shadow">
-              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full rounded-full object-contain" />
-            </div>
-            <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
-              <img src={branding.ethiopiaFlag} alt="Ethiopia Flag" className="h-full w-full object-cover" />
-            </div>
-          </div>
+  const isApproved = record?.status === 'የጸደቀ';
 
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-500/20 text-rose-500 mb-3">
-            <XCircle className="h-10 w-10" />
-          </div>
-          <h2 className="text-xl font-black text-rose-400 font-serif">
-            መታወቂያው አልተገኘም! (Record Not Found)
-          </h2>
-          <p className="mt-2 text-xs text-slate-300">
-            የተፈለገው የመታወቂያ ቁጥር <b className="font-mono text-amber-400 bg-slate-800 px-2 py-0.5 rounded">{decodeURIComponent(idNumber)}</b> በቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የጦር መሳሪያ ምዝገባ ዳታቤዝ ውስጥ አልተገኘም፡፡
+  // 2. Unregistered OR Not Approved by Manager -> Show NOTHING of the ID card / person details!
+  if (!record || !isApproved) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-white select-none">
+        <div className="flex max-w-sm flex-col items-center gap-3 rounded-2xl border-2 border-rose-700 bg-rose-950/60 px-6 py-7 text-center shadow-2xl">
+          <XCircle className="h-12 w-12 text-rose-500" />
+          <p className="text-base font-black text-rose-300">
+            ያልተመዘገበ ወይም በሃላፊ ያልተፈቀደ መታወቂያ
           </p>
-          <div className="mt-4 rounded-xl bg-slate-950 border border-slate-800 p-3 text-xs text-amber-300">
-            ይህ ሰነድ ህጋዊ ላይሆን ወይም ሀሰተኛ ሊሆን ስለሚችል ለፖሊስ በስልክ ቁጥር <b>{branding.contactPhone}</b> ያሳውቁ፡፡
-          </div>
-          <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-center text-xs text-slate-400">
-            <span className="font-semibold text-slate-300">ማሳሰቢያ፦ </span>
-            ይህ ገጽ በስካን የተደረገውን ሰነድ ትክክለኛነት ለማጣራት ብቻ የሚያገለግል የተከለለ ማረጋገጫ ነው፡፡
-          </div>
         </div>
       </div>
     );
   }
 
   const isExpired = new Date(record.expiryDate) < new Date();
-  const isApproved = record.status === 'የጸደቀ';
   const isSuspended = record.status === 'የታገደ';
+  const isSurrendered = record.status === 'ገቢ የተደረገ' || Boolean(record.isSurrendered);
+  const isInvalid = isExpired || isSuspended || isSurrendered;
 
+  // 3. Approved & Registered -> Show ONLY Authenticity Status + Front ID Card (View-Only, Zero Extra Text/Navigation)
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 selection:bg-amber-500 selection:text-slate-950">
-      <div className="mx-auto max-w-4xl">
-        {/* ============================================================== */}
-        {/* TOP OFFICIAL HEADER: FLAGS & POLICE LOGO ALWAYS VISIBLE       */}
-        {/* ============================================================== */}
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-5 shadow-2xl backdrop-blur-md mb-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-4">
-            {/* Left Flag: Benishangul Gumuz Regional State */}
-            <div className="flex items-center gap-2">
-              <div className="h-9 w-14 overflow-hidden rounded border border-slate-600 shadow">
-                <img src={branding.bgrsFlag} alt="BGRS Flag" className="h-full w-full object-cover" />
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 hidden sm:inline">
-                ቤ/ጉ/ክ/መ
-              </span>
-            </div>
-
-            {/* Center: Official Police Crest and Titles */}
-            <div className="flex flex-col items-center text-center">
-              <div className="flex items-center gap-2">
-                <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-amber-400/80 bg-white shadow">
-                  <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full rounded-full object-contain" />
-                </div>
-                <div>
-                  <h1 className="text-base font-black text-amber-400 font-serif leading-tight">
-                    {branding.commissionNameAm}
-                  </h1>
-                  <h2 className="text-xs font-bold text-slate-200 leading-tight">
-                    የጦር መሳሪያ ፈቃድና መታወቂያ ዲጂታል ማረጋገጫ ፖርታል
-                  </h2>
-                </div>
-              </div>
-              <span className="mt-1 text-[10px] font-semibold text-slate-400 tracking-wider">
-                Official Digital Firearms Verification Portal
-              </span>
-            </div>
-
-            {/* Right Flag: Ethiopian National Flag */}
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-400 hidden sm:inline">
-                ኢ.ፌ.ዴ.ሪ
-              </span>
-              <div className="h-9 w-14 overflow-hidden rounded border border-slate-600 shadow">
-                <img src={branding.ethiopiaFlag} alt="Ethiopian Flag" className="h-full w-full object-cover" />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span className="font-mono text-slate-400">
-              የተረጋገጠ መታወቂያ፡ <b className="text-amber-400">{record.idCardNumber}</b>
-            </span>
-            <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-[11px] font-bold text-emerald-400">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span>ይፋዊ የትክክለኛነት ማረጋገጫ ብቻ (Verification Only)</span>
-            </div>
-          </div>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 px-3 py-6 text-slate-100 select-none">
+      {isInvalid ? (
+        <div className="flex items-center gap-2 rounded-xl border-2 border-rose-600 bg-rose-950/85 px-5 py-2.5 text-center shadow-lg">
+          <ShieldAlert className="h-5 w-5 shrink-0 text-rose-400" />
+          <span className="text-sm font-black text-rose-200">
+            {isExpired
+              ? 'የማያገልግል መሳሪያ ፈቃድ — ፈቃዱ አያገለግልም'
+              : 'የማያገልግል መሳሪያ ፈቃድ — ታግዷል / ገቢ ተደርጓል'}
+          </span>
         </div>
-
-        {/* ============================================================== */}
-        {/* STANDALONE SECURITY BANNER (ወደ ዋና ሲስተም እንዳይገባ የተከለከለ) */}
-        {/* ============================================================== */}
-        <div className="mb-6 flex items-start sm:items-center gap-3 rounded-2xl border border-blue-500/30 bg-blue-950/40 p-4 text-xs text-blue-200 backdrop-blur-xs">
-          <Lock className="h-5 w-5 shrink-0 text-amber-400 mt-0.5 sm:mt-0" />
-          <div className="leading-relaxed">
-            <strong className="text-amber-300 font-bold">የደህንነት እና የትክክለኛነት ማስታወቂያ፦ </strong>
-            ይህ ገጽ በኪውአር ኮድ (QR Code) ስካን የተደረገውን የጦር መሳሪያ ፈቃድ ትክክለኛነትና ህጋዊነት ብቻ ለማሳየት የተዘጋጀ ገለልተኛ የህዝብ ማረጋገጫ ነው፡፡ ወደ ዋናው የፖሊስ አስተዳደር ሲስተም ወይም ዳሽቦርድ አያስገባም፡፡
-          </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-xl border-2 border-emerald-500 bg-emerald-950/80 px-5 py-2.5 text-center shadow-lg">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+          <span className="text-sm font-black text-emerald-300">
+            ትክክለኛ እና በሃላፊ የጸደቀ መታወቂያ
+          </span>
         </div>
-        {/* ============================================================== */}
-        {isExpired || isSuspended ? (
-          <div className="mb-6 rounded-3xl border-4 border-rose-600 bg-rose-950/80 p-6 text-center shadow-2xl backdrop-blur-sm animate-pulse">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-600 text-white shadow-lg mb-3">
-              <ShieldAlert className="h-10 w-10" />
-            </div>
-            <h2 className="text-2xl font-black text-rose-300 tracking-wider">
-              መሳሪያዉ ታግዷል! (LICENSE EXPIRED / SUSPENDED)
-            </h2>
-            <p className="mt-1 text-sm font-bold text-rose-200">
-              {isSuspended 
-                ? 'ይህ የጦር መሳሪያ በፖሊስ ኮሚሽኑ ውሳኔ ሙሉ በሙሉ ታግዷል!' 
-                : 'የመታወቂያው የአንድ ዓመት የአገልግሎት ጊዜ ስላለፈበት ፈቃዱ ታግዷል!'}
-            </p>
-            <p className="mt-2 text-xs text-slate-300">
-              ያበቃበት ቀን፡ <b>{record.expiryDate}</b> ነበር፡፡ ባለመሳሪያው በአስቸኳይ ቀርቦ ፈቃዱን ማደስ አለበት፡፡
-            </p>
-          </div>
-        ) : !isApproved ? (
-          <div className="mb-6 rounded-3xl border-2 border-amber-500 bg-amber-950/60 p-6 text-center shadow-xl">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 mb-2">
-              <AlertTriangle className="h-7 w-7" />
-            </div>
-            <h2 className="text-lg font-black text-amber-300">
-              ይህ የጦር መሳሪያ ፈቃድ በሂደት ላይ ያለ / ያልጸደቀ ነው
-            </h2>
-            <p className="text-xs text-slate-300 mt-1">
-              ይህ መታወቂያ በስራ ሂደት ሃላፊው እስካልጸደቀ ድረስ ህጋዊ እንቅስቃሴ ማድረግ የተከለከለ ነው፡፡
-            </p>
-          </div>
-        ) : (
-          <div className="mb-6 rounded-3xl border-2 border-emerald-500 bg-emerald-950/60 p-6 text-center shadow-xl">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 mb-2">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <h2 className="text-xl font-black text-emerald-400 tracking-wide font-serif">
-              ህጋዊ እና በይፋ የተረጋገጠ የጦር መሳሪያ ፈቃድ
-            </h2>
-            <p className="text-xs text-emerald-200 font-medium mt-1">
-              በቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን የወንጀል መከላከል ሂደት በይፋ የተመዘገበና የጸደቀ ህጋዊ ሰነድ ነው፡፡
-            </p>
-          </div>
-        )}
+      )}
 
-        {/* View Switcher Tabs: ATM ID Card vs A4 Certificate */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('idCard')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold transition cursor-pointer ${
-              activeTab === 'idCard'
-                ? 'bg-amber-500 text-slate-950 shadow-lg'
-                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            <IdCard className="h-4 w-4" />
-            የኤቲኤም መታወቂያ ካርድ (ATM ID Card)
-          </button>
-          <button
-            onClick={() => setActiveTab('certificate')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold transition cursor-pointer ${
-              activeTab === 'certificate'
-                ? 'bg-amber-500 text-slate-950 shadow-lg'
-                : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            <FileText className="h-4 w-4" />
-            የA4 ምዝገባ ሰርቲፊኬት (A4 Certificate)
-          </button>
-        </div>
-
-        {/* ============================================================== */}
-        {/* TAB 1: AUTHENTIC ATM ID CARD                                  */}
-        {/* ============================================================== */}
-        {activeTab === 'idCard' && (
-          <div className="flex flex-col items-center">
-            <IdCardView
-              registration={record}
-              branding={branding}
-              showPrintActions={false}
-            />
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* TAB 2: A4 OFFICIAL CERTIFICATE                                */}
-        {/* ============================================================== */}
-        {activeTab === 'certificate' && (
-          <div className="flex flex-col items-center">
-            <CertificateView
-              registration={record}
-              branding={branding}
-              showActions={false}
-            />
-          </div>
-        )}
-
-        {/* ============================================================== */}
-        {/* 3. VERIFIED READ-ONLY SUMMARY DETAILS TABLE                    */}
-        {/* ============================================================== */}
-        <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl">
-          <h3 className="mb-4 border-b border-slate-800 pb-2 text-sm font-bold text-amber-400 flex items-center justify-between">
-            <span>የተመዘገቡ ይፋዊ ዝርዝር መረጃዎች</span>
-            <span className="text-xs font-mono text-slate-400">የመ/ቁ፡ {record.certNumber}</span>
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div>
-              <span className="text-slate-400">ሙሉ ስም፡</span>
-              <p className="font-bold text-slate-100 text-sm">{record.fullName}</p>
-            </div>
-            <div>
-              <span className="text-slate-400">ዜግነት እና ዕድሜ፡</span>
-              <p className="font-semibold text-slate-200">{record.nationality} • {record.age} ዓመት</p>
-            </div>
-            <div>
-              <span className="text-slate-400">የመኖሪያ አድራሻ፡</span>
-              <p className="font-medium text-slate-200">
-                {record.region}፣ {record.zone}፣ {record.woreda}፣ {record.kebele}
-              </p>
-            </div>
-            <div>
-              <span className="text-slate-400">ስራ እና ሃላፊነት፡</span>
-              <p className="font-medium text-slate-200">
-                {record.occupation} {record.positionRole ? `(${record.positionRole})` : ''}
-              </p>
-            </div>
-            <div className="border-t border-slate-800 pt-2">
-              <span className="text-slate-400">የመሳሪያው አይነት፡</span>
-              <p className="font-black text-amber-300">{record.firearmType}</p>
-            </div>
-            <div className="border-t border-slate-800 pt-2">
-              <span className="text-slate-400">ንምራ ቁጥር (Serial Number)፡</span>
-              <p className="font-mono font-black text-white bg-slate-800 px-2 py-0.5 rounded inline-block">
-                {record.serialNumber}
-              </p>
-            </div>
-            <div>
-              <span className="text-slate-400">የጥይትና ካርታ ብዛት፡</span>
-              <p className="font-semibold text-slate-200">
-                ጥይት: {record.bulletCount} | ካርታ: {record.magazineCount} ({record.ownership})
-              </p>
-            </div>
-            <div>
-              <span className="text-slate-400">የመሳሪያው ይዘት እና ሀገር፡</span>
-              <p className="font-semibold text-slate-200">
-                {record.mechanism} • {record.countryOfOrigin} ({record.manufactureYear} ዓ/ም)
-              </p>
-            </div>
-            <div className="border-t border-slate-800 pt-2">
-              <span className="text-slate-400">የተሰጠበት ቀን፡</span>
-              <p className="font-semibold text-slate-200">{record.registrationDate}</p>
-            </div>
-            <div className="border-t border-slate-800 pt-2">
-              <span className="text-slate-400">የሚያበቃበት ቀን፡</span>
-              <p className={`font-bold ${isExpired ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {record.expiryDate} {isExpired ? '(ጊዜው አልፏል)' : '(ህጋዊ ፈቃድ)'}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
-            <p>
-              ይህ ገጽ በኪውአርኮድ (QR Code) በይፋ የተረጋገጠ የፖሊስ ኮሚሽን ሰነድ መመልከቻ ብቻ ነው፡፡
-            </p>
-            <div className="flex items-center gap-2 text-amber-400 font-bold">
-              <PhoneCall className="h-4 w-4" />
-              <span>ለማንኛውም ጥያቄ ወይም የጥቆማ መረጃ በስልክ <b>{branding.contactPhone}</b> ይደውሉ፡፡</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Front ID Card Only — Strictly View-Only, No Back Card, No Tabs, No Buttons, No Links */}
+      <IdCardView
+        registration={record}
+        branding={branding}
+        frontOnly={true}
+        showPrintActions={false}
+      />
     </div>
   );
 };

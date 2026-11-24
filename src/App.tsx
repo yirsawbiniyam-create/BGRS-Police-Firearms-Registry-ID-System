@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SystemProvider, useSystem } from './context/SystemContext.tsx';
 import { FirearmRegistration } from './types/index.ts';
 import { LoginForm } from './components/LoginForm.tsx';
@@ -29,16 +29,13 @@ const MainApp: React.FC = () => {
   const { user, records, branding } = useSystem();
   const [currentView, setCurrentView] = useState<AppView>('dashboard');
   const [activeRecord, setActiveRecord] = useState<FirearmRegistration | null>(null);
-  const [verifyIdParam, setVerifyIdParam] = useState<string | null>(null);
-
-  // Check URL query for public QR verification: ?verify=ቤጉፖ-ጦመ-0001
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const verifyCode = params.get('verify');
-    if (verifyCode) {
-      setVerifyIdParam(verifyCode);
+  const [verifyIdParam] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('verify');
+    } catch {
+      return null;
     }
-  }, []);
+  });
 
   // When QR code is scanned: Isolated public verification view.
   // Strictly verifies authenticity and validity only; prevents entry into the main dashboard/system.

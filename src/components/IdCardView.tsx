@@ -11,6 +11,7 @@ interface IdCardViewProps {
   isApprover?: boolean;
   onEdit?: () => void;
   showPrintActions?: boolean;
+  frontOnly?: boolean;
 }
 
 export type PrintLayoutMode = 'foldable' | 'sideBySide' | 'duplex' | 'frontOnly' | 'backOnly';
@@ -21,6 +22,7 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
   isApprover = false,
   onEdit,
   showPrintActions = true,
+  frontOnly = false,
 }) => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [printLayout, setPrintLayout] = useState<PrintLayoutMode>('foldable');
@@ -49,6 +51,10 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
   )}`;
 
   useEffect(() => {
+    if (!isApproved) {
+      setQrCodeDataUrl('');
+      return;
+    }
     QRCode.toDataURL(verificationUrl, {
       width: 320,
       margin: 1,
@@ -60,7 +66,7 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
     })
       .then((url) => setQrCodeDataUrl(url))
       .catch((err) => console.error('Failed to generate QR code', err));
-  }, [verificationUrl, registration.idCardNumber]);
+  }, [verificationUrl, registration.idCardNumber, isApproved]);
 
   const handlePrint = (layoutOverride?: PrintLayoutMode) => {
     if (!isApproved) return;
@@ -416,21 +422,30 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
         {/* Middle Section: Large QR Code on Left, Uncropped Notice & Rules on Right */}
         <div className="my-1 flex flex-1 items-center gap-2.5 min-h-0">
-          {/* Left: QR Code */}
+          {/* Left: QR Code (Hidden until Approved by Manager) */}
           <div className="flex flex-col items-center justify-center flex-shrink-0">
-            <div className="h-[104px] w-[104px] rounded-lg border-2 border-black bg-white p-1 shadow-sm flex items-center justify-center">
-              {qrCodeDataUrl ? (
-                <img 
-                  src={qrCodeDataUrl} 
-                  alt="Verification QR Code" 
-                  className="h-full w-full object-contain" 
-                />
-              ) : (
-                <div className="h-full w-full animate-pulse bg-slate-100" />
-              )}
-            </div>
+            {isApproved ? (
+              <div className="h-[104px] w-[104px] rounded-lg border-2 border-black bg-white p-1 shadow-sm flex items-center justify-center">
+                {qrCodeDataUrl ? (
+                  <img 
+                    src={qrCodeDataUrl} 
+                    alt="Verification QR Code" 
+                    className="h-full w-full object-contain" 
+                  />
+                ) : (
+                  <div className="h-full w-full animate-pulse bg-slate-100" />
+                )}
+              </div>
+            ) : (
+              <div className="h-[104px] w-[104px] rounded-lg border-2 border-dashed border-amber-700 bg-amber-50/95 p-2 shadow-sm flex flex-col items-center justify-center text-center">
+                <Lock className="h-5 w-5 text-amber-800 mb-1" />
+                <span className="text-[7px] font-black text-amber-900 leading-tight">
+                  በሃላፊ እስኪጸድቅ ስካን ማድረጊያ አይታይም
+                </span>
+              </div>
+            )}
             <span className="mt-1 text-[7.5px] font-black text-black">
-              ለማረጋገጥ ስካን ያድርጉ
+              {isApproved ? 'ለማረጋገጥ ስካን ያድርጉ' : 'ማጽደቅ ይጠብቃል'}
             </span>
           </div>
 
@@ -517,6 +532,16 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
         return <div className={`${baseClass} -bottom-1.5 -right-1.5 border-b-2 border-r-2`} />;
     }
   };
+
+  if (frontOnly) {
+    return (
+      <div className="flex w-full items-center justify-center">
+        <div className="origin-center scale-[0.82] min-[390px]:scale-[0.9] sm:scale-100 transition-transform">
+          {renderFrontCard()}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-5xl">
