@@ -54,11 +54,11 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate }) => {
           onClick={() => onNavigate('dashboard')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="h-11 w-11 transition group-hover:scale-105 drop-shadow">
+          <div className="h-11 w-11 overflow-hidden rounded-full border border-amber-400/70 bg-white transition group-hover:scale-105 shadow">
             <img
               src={branding.policeLogo}
               alt="Police Crest"
-              className="h-full w-full object-contain"
+              className="h-full w-full rounded-full object-contain"
             />
           </div>
           <div className="flex flex-col">

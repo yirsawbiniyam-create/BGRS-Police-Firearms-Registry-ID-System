@@ -68,11 +68,13 @@ export async function convertLogoToWhiteWatermark(logoSrc: string): Promise<stri
           return;
         }
 
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
 
-        // Sample corner pixels to detect the background color
+        // Sample corner pixels to detect the outer background color
         const corners = [
           [0, 0],
           [width - 1, 0],
@@ -91,55 +93,80 @@ export async function convertLogoToWhiteWatermark(logoSrc: string): Promise<stri
         bgG = Math.round(bgG / 4);
         bgB = Math.round(bgB / 4);
 
-        const bgLuminance = 0.299 * bgR + 0.587 * bgG + 0.114 * bgB;
-        const isDarkBackground = bgLuminance < 140;
+        // Flood-fill ONLY from outer edges so interior logo text and details are 100% preserved!
+        const totalPixels = width * height;
+        const visited = new Uint8Array(totalPixels);
+        const queue = new Int32Array(totalPixels);
+        let head = 0;
+        let tail = 0;
 
-        // Process pixels: convert background to pure white/transparent
-        for (let i = 0; i < data.length; i += 4) {
+        const isOuterBgPixel = (pixelIdx: number): boolean => {
+          const i = pixelIdx * 4;
+          const a = data[i + 3];
+          if (a < 25) return true;
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
-          const a = data[i + 3];
-
-          if (a < 20) {
-            // Already transparent - make pure white transparent
-            data[i] = 255;
-            data[i + 1] = 255;
-            data[i + 2] = 255;
-            data[i + 3] = 0;
-            continue;
-          }
-
-          // Distance from corner background color
           const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+          return dist < 52;
+        };
 
-          if (isDarkBackground) {
-            // If background is dark (e.g. black, navy, dark gray):
-            // Any dark pixel close to the background color becomes pure transparent/white
-            if (dist < 85 || (r < 65 && g < 65 && b < 65)) {
-              data[i] = 255;
-              data[i + 1] = 255;
-              data[i + 2] = 255;
-              data[i + 3] = 0; // Transparent
-            } else {
-              // Enhance emblem pixel brightness so it pops brightly on white
-              data[i] = Math.min(255, Math.round(r * 1.15));
-              data[i + 1] = Math.min(255, Math.round(g * 1.15));
-              data[i + 2] = Math.min(255, Math.round(b * 1.15));
-            }
-          } else {
-            // If background was already light or near-white:
-            if (dist < 45 || (r > 230 && g > 230 && b > 230)) {
-              data[i] = 255;
-              data[i + 1] = 255;
-              data[i + 2] = 255;
-              data[i + 3] = 0; // Transparent
-            }
+        for (let x = 0; x < width; x++) {
+          const topIdx = x;
+          const botIdx = (height - 1) * width + x;
+          if (!visited[topIdx] && isOuterBgPixel(topIdx)) {
+            visited[topIdx] = 1;
+            queue[tail++] = topIdx;
+          }
+          if (!visited[botIdx] && isOuterBgPixel(botIdx)) {
+            visited[botIdx] = 1;
+            queue[tail++] = botIdx;
+          }
+        }
+        for (let y = 0; y < height; y++) {
+          const leftIdx = y * width;
+          const rightIdx = y * width + (width - 1);
+          if (!visited[leftIdx] && isOuterBgPixel(leftIdx)) {
+            visited[leftIdx] = 1;
+            queue[tail++] = leftIdx;
+          }
+          if (!visited[rightIdx] && isOuterBgPixel(rightIdx)) {
+            visited[rightIdx] = 1;
+            queue[tail++] = rightIdx;
+          }
+        }
+
+        while (head < tail) {
+          const p = queue[head++];
+          const i = p * 4;
+          data[i] = 255;
+          data[i + 1] = 255;
+          data[i + 2] = 255;
+          data[i + 3] = 0;
+
+          const x = p % width;
+          const y = (p - x) / width;
+
+          if (x > 0) {
+            const n = p - 1;
+            if (!visited[n] && isOuterBgPixel(n)) { visited[n] = 1; queue[tail++] = n; }
+          }
+          if (x < width - 1) {
+            const n = p + 1;
+            if (!visited[n] && isOuterBgPixel(n)) { visited[n] = 1; queue[tail++] = n; }
+          }
+          if (y > 0) {
+            const n = p - width;
+            if (!visited[n] && isOuterBgPixel(n)) { visited[n] = 1; queue[tail++] = n; }
+          }
+          if (y < height - 1) {
+            const n = p + width;
+            if (!visited[n] && isOuterBgPixel(n)) { visited[n] = 1; queue[tail++] = n; }
           }
         }
 
         ctx.putImageData(imgData, 0, 0);
-        resolve(canvas.toDataURL('image/png', 0.92));
+        resolve(canvas.toDataURL('image/png', 0.96));
       } catch (err) {
         console.warn('Canvas watermark transformation error:', err);
         resolve(logoSrc);

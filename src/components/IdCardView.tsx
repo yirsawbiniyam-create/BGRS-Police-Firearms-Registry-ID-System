@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import QRCode from 'qrcode';
 import { FirearmRegistration, SystemBranding } from '../types/index.ts';
 import { FirearmLifecycleModal } from './FirearmLifecycleModal.tsx';
-import { Printer, ShieldCheck, AlertTriangle, Lock, Download, User, Scissors, Check, SlidersHorizontal, CreditCard, ArrowRightLeft, Archive } from 'lucide-react';
+import { encodeCode128B } from '../utils/barcode.ts';
+import { Printer, ShieldCheck, AlertTriangle, Lock, Download, User, Scissors, Check, SlidersHorizontal, CreditCard, ArrowRightLeft, Archive, Phone } from 'lucide-react';
 
 interface IdCardViewProps {
   registration: FirearmRegistration;
@@ -33,6 +34,7 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
   const isApproved = registration.status === 'የጸደቀ';
   const isSuspended = registration.status === 'የታገደ';
   const isSurrendered = registration.status === 'ገቢ የተደረገ' || registration.isSurrendered;
+  const serialBarcode = encodeCode128B(registration.serialNumber || 'SN-0000');
 
   // Verification URL that will be encoded inside the QR Code
   const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${encodeURIComponent(
@@ -67,38 +69,37 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
   // =========================================================================
   // RENDER: FRONT SIDE (የፊት ገጽ)
-  // Light, authoritative background transitioning to soft whitish around the
-  // portrait so all text stays crisp and the photo blends seamlessly without a box.
+  // Rich colored Police Royal Blue main card (neither dark/black nor white)
+  // transitioning smoothly into a whitish zone strictly around the borderless
+  // portrait, with a full-bleed circular Police Logo.
   // =========================================================================
   const renderFrontCard = () => (
     <div 
-      className="relative overflow-hidden rounded-2xl shadow-2xl border-2 border-amber-600/80 select-none"
+      className="relative overflow-hidden rounded-2xl shadow-2xl border-2 border-amber-500/90 select-none"
       style={{
         width: '420px',
         height: '265px',
-        background: 'linear-gradient(118deg, #cfd9e6 0%, #dce4ef 34%, #e9edf2 62%, #f1efe9 82%, #f4f2ec 100%)',
+        background: 'linear-gradient(100deg, #163d73 0%, #1e4f91 38%, #2a63ad 56%, #88aedb 67%, #e7eef6 75%, #f8f9fb 85%, #ffffff 100%)',
         boxSizing: 'border-box',
       }}
     >
-      {/* Subtle Golden Metallic Frame & Soft Whitish Aura Around Photo Zone */}
-      <div className="pointer-events-none absolute inset-0 rounded-2xl border-[2.5px] border-amber-500/75 shadow-inner" />
+      {/* Golden Inner Trim & Pure Whitish Glow Localized Around Right Portrait Zone */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl border-[2.5px] border-amber-400/80 shadow-inner" />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 160px 150px at 84% 52%, rgba(244, 242, 236, 0.96) 0%, rgba(241, 239, 233, 0.65) 55%, transparent 100%)',
+            'radial-gradient(ellipse 140px 150px at 85% 52%, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.9) 55%, transparent 100%)',
         }}
       />
-      <div className="pointer-events-none absolute -top-20 -left-20 h-44 w-44 rounded-full bg-blue-900/10 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-20 -right-20 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
       
-      {/* Security Guilloche Pattern Overlay */}
-      <div className="pointer-events-none absolute inset-0 security-pattern opacity-50" />
+      {/* Subtle Security Guilloche Pattern Overlay */}
+      <div className="pointer-events-none absolute inset-0 security-pattern opacity-20" />
 
       {/* Unapproved watermark overlay */}
       {!isApproved && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rotate-[-20deg]">
-          <div className="border-2 border-amber-600 bg-white/92 px-4 py-1.5 rounded-lg text-center shadow-2xl">
+          <div className="border-2 border-amber-600 bg-white/95 px-4 py-1.5 rounded-lg text-center shadow-2xl">
             <span className="text-xs font-black text-amber-900 tracking-wider">
               የሃላፊውን ማጽደቅ በመጠባበቅ ላይ
             </span>
@@ -123,13 +124,18 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
         </div>
       )}
 
-      <div className="relative z-10 flex h-full flex-col justify-between p-3.5">
-        {/* 1. Header: Left BGRS Flag, Center Police Crest & Titles, Right Ethiopian Flag */}
-        <div>
-          <div className="flex items-center justify-between border-b-2 border-amber-600/45 pb-1.5">
+      <div className="relative z-10 flex h-full flex-col justify-between">
+        {/* 1. Header: Unified Royal Police Blue Banner with Left BGRS Flag, Crisp Circular Police Crest & Titles, Right Ethiopian Flag */}
+        <div
+          className="px-3 pt-1.5 pb-1 border-b-2 border-amber-400/85 shadow-sm"
+          style={{
+            background: 'linear-gradient(90deg, #11305c 0%, #1b4885 50%, #11305c 100%)',
+          }}
+        >
+          <div className="flex items-center justify-between gap-1">
             {/* Left: Benishangul Gumuz Flag */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <div className="h-6 w-10 overflow-hidden rounded shadow-sm border border-slate-500/50">
+            <div className="flex items-center flex-shrink-0">
+              <div className="h-6 w-10 overflow-hidden rounded shadow-sm border border-amber-300/60">
                 <img 
                   src={branding.bgrsFlag} 
                   alt="BGRS Flag" 
@@ -138,28 +144,28 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
               </div>
             </div>
 
-            {/* Center: Police Logo between flags with Commission Title */}
-            <div className="flex items-center justify-center gap-2 px-1">
-              <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full border border-amber-700/50 bg-white/70 p-0.5 shadow-sm">
+            {/* Center: Crisp Circular Police Logo (Zero Scale Blur, Zero Text Clipping) & Commission Title */}
+            <div className="flex items-center justify-center gap-2 px-1 min-w-0">
+              <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full border-[1.5px] border-amber-300 bg-white shadow-md">
                 <img 
                   src={branding.policeLogo} 
                   alt="Police Logo" 
-                  className="h-full w-full object-contain" 
+                  className="h-full w-full rounded-full object-contain" 
                 />
               </div>
-              <div className="flex flex-col items-center text-center">
-                <span className="text-[9.5px] font-black tracking-wide text-slate-950 font-serif leading-tight">
+              <div className="flex flex-col items-center text-center min-w-0">
+                <span className="text-[9px] font-black tracking-wide text-amber-300 font-serif leading-tight drop-shadow-xs">
                   {branding.commissionNameAm}
                 </span>
-                <span className="text-[8px] font-extrabold text-amber-900 tracking-tight">
+                <span className="text-[7.5px] font-extrabold text-white tracking-tight">
                   የጦር መሳሪያ ፈቃድ መታወቂያ
                 </span>
               </div>
             </div>
 
             {/* Right: Ethiopian Flag */}
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <div className="h-6 w-10 overflow-hidden rounded shadow-sm border border-slate-500/50">
+            <div className="flex items-center flex-shrink-0">
+              <div className="h-6 w-10 overflow-hidden rounded shadow-sm border border-amber-300/60">
                 <img 
                   src={branding.ethiopiaFlag} 
                   alt="Ethiopia Flag" 
@@ -170,100 +176,127 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
           </div>
         </div>
 
-        {/* 2. Middle Body: Left Data Columns (Crisp Dark Ink), Right Blended Portrait (No Rectangular Box) */}
-        <div className="mt-1 flex flex-1 items-center justify-between gap-1.5">
-          {/* Left Details Grid - High-contrast dark ink on light slate/off-white background */}
-          <div className="flex flex-1 flex-col justify-center space-y-0.5 text-[9.5px]">
-            {/* ID Number */}
-            <div className="flex items-center gap-1">
-              <span className="font-extrabold text-blue-950">መታወቂያ ቁጥር፡</span>
-              <span className="font-black text-slate-950 tracking-wider font-mono text-[10.5px] bg-amber-300/65 px-1.5 py-0.5 rounded border border-amber-700/45 shadow-2xs">
-                {registration.idCardNumber}
-              </span>
-            </div>
-
-            {/* Full Name & Phone */}
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1 truncate max-w-[188px]">
-                <span className="font-extrabold text-blue-950">ሙሉ ስም፡</span>
-                <span className="font-black text-slate-950 text-[11px] truncate">
-                  {registration.fullName}
+        {/* 2. Middle Body: Left Uncropped Data + Raised Gold ID & Phone Strip, Right Uncropped Portrait + Serial Barcode */}
+        <div className="flex flex-1 items-stretch justify-between gap-1.5 px-3 py-1 min-h-0">
+          {/* Left Details Column - Zero Truncation, Wraps Cleanly */}
+          <div className="flex flex-1 flex-col justify-start gap-[3px] min-w-0 pt-0.5">
+            {/* Raised Top Highlight Row: Distinct Gold-Embossed ID Card Number + Paired Phone Number */}
+            <div className="flex flex-wrap items-center justify-between gap-1 pb-0.5 border-b border-amber-300/35">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[7.5px] font-black text-amber-200 tracking-tight">
+                  መታወቂያ ቁጥር፡
+                </span>
+                <span
+                  className="inline-block rounded-md border border-yellow-100/90 px-2 py-0.5 font-serif text-[10.5px] font-black tracking-[0.08em] text-[#7c1111] shadow-md"
+                  style={{
+                    background: 'linear-gradient(135deg, #fef08a 0%, #facc15 50%, #f59e0b 100%)',
+                  }}
+                >
+                  {registration.idCardNumber}
                 </span>
               </div>
               {registration.phoneNumber && (
-                <span className="font-mono text-[8px] text-slate-950 font-extrabold bg-white/70 px-1 py-0.2 rounded border border-slate-400/60">
-                  {registration.phoneNumber}
+                <span className="inline-flex items-center gap-1 rounded-md border border-cyan-200/55 bg-slate-950/35 px-1.5 py-0.5 font-mono text-[8px] font-extrabold text-cyan-100 shadow-2xs">
+                  <Phone className="h-2.5 w-2.5 text-amber-300 flex-shrink-0" />
+                  <span>{registration.phoneNumber}</span>
                 </span>
               )}
             </div>
 
-            {/* Address */}
-            <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-blue-950">አድራሻ፡</span>
-              <span className="font-bold text-slate-900 truncate max-w-[205px]">
-                {registration.region}፣ {registration.zone}፣ {registration.woreda}፣ {registration.kebele}
+            {/* Full Name (Uncropped, full width) */}
+            <div className="text-[9px] leading-[1.22] break-words whitespace-normal">
+              <span className="font-extrabold text-amber-200 mr-1">ሙሉ ስም፡</span>
+              <span className="font-black text-white text-[10.5px] drop-shadow-2xs">
+                {registration.fullName}
               </span>
             </div>
 
-            {/* Work & Responsibility */}
-            <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-blue-950">ስራ/ሃላፊነት፡</span>
-              <span className="text-slate-900 font-bold truncate max-w-[180px]">
+            {/* Address (Uncropped, wraps cleanly) */}
+            <div className="text-[8px] leading-[1.2] break-words whitespace-normal">
+              <span className="font-extrabold text-amber-200 mr-1">አድራሻ፡</span>
+              <span className="font-bold text-white">
+                {registration.region}፣ {registration.zone}፣ {registration.woreda}፣ {registration.kebele}
+                {registration.houseNumber ? ` (ቤ/ቁ ${registration.houseNumber})` : ''}
+              </span>
+            </div>
+
+            {/* Work & Responsibility (Uncropped) */}
+            <div className="text-[8px] leading-[1.2] break-words whitespace-normal">
+              <span className="font-extrabold text-amber-200 mr-1">ስራ/ሃላፊነት፡</span>
+              <span className="text-slate-100 font-bold">
                 {registration.occupation} ({registration.positionRole || 'የግል'})
               </span>
             </div>
 
-            {/* Firearm Type & Ammo */}
-            <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-blue-950">መሳሪያ/ጥይት፡</span>
-              <span className="font-black text-emerald-900 truncate max-w-[180px]">
-                {registration.firearmType} • ጥይት: {registration.bulletCount}
-              </span>
-            </div>
-
-            {/* Serial No & Ownership */}
-            <div className="flex items-center gap-1 text-[8.5px]">
-              <span className="font-extrabold text-blue-950">ንምራ ቁጥር፡</span>
-              <span className="font-mono font-black text-slate-950 tracking-wider bg-white/75 px-1.5 py-0.5 rounded border border-slate-500/45">
-                {registration.serialNumber} ({registration.ownership})
+            {/* Firearm Type, Ammo & Ownership (Uncropped) */}
+            <div className="text-[8px] leading-[1.2] break-words whitespace-normal">
+              <span className="font-extrabold text-amber-200 mr-1">መሳሪያ/ጥይት፡</span>
+              <span className="font-black text-emerald-200 drop-shadow-2xs">
+                {registration.firearmType} • ጥይት: {registration.bulletCount} • ካርታ: {registration.magazineCount} ({registration.ownership})
               </span>
             </div>
           </div>
 
-          {/* Right Side: Seamless Borderless Portrait Blended Into Whitish Background */}
-          <div className="relative flex flex-col items-center justify-center flex-shrink-0 -mr-1">
-            <div
-              className="relative h-[120px] w-[96px] flex items-center justify-center"
-              style={{
-                maskImage:
-                  'radial-gradient(ellipse 68% 72% at 50% 48%, #000000 54%, rgba(0,0,0,0.68) 74%, rgba(0,0,0,0) 100%)',
-                WebkitMaskImage:
-                  'radial-gradient(ellipse 68% 72% at 50% 48%, #000000 54%, rgba(0,0,0,0.68) 74%, rgba(0,0,0,0) 100%)',
-              }}
-            >
+          {/* Right Side: Full Uncropped Portrait + Firearm Serial Number Barcode Underneath */}
+          <div className="relative flex w-[104px] flex-shrink-0 flex-col items-center justify-between py-0.5">
+            {/* Uncropped Portrait Photo */}
+            <div className="relative h-[112px] w-[100px] flex items-center justify-center">
               {registration.photoUrl ? (
                 <img 
                   src={registration.photoUrl} 
                   alt={registration.fullName}
-                  className="h-full w-full object-cover object-top mix-blend-multiply contrast-105" 
+                  className="max-h-full max-w-full object-contain mix-blend-multiply" 
                 />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center text-slate-500">
-                  <User className="h-12 w-12 text-slate-500/75" />
+                  <User className="h-10 w-10 text-slate-500/75" />
                   <span className="text-[7px] font-bold text-slate-600 mt-0.5">ፎቶ የለም</span>
                 </div>
               )}
             </div>
-            {/* Subtle Security Micro-Emblem Overlay at lower corner of portrait */}
-            <div className="pointer-events-none absolute bottom-1 right-1 h-4 w-4 rounded-full border border-amber-700/40 bg-gradient-to-tr from-amber-400/45 to-sky-300/45 opacity-75" />
+
+            {/* Firearm Serial Number Barcode + Stylized Text Directly Under Photo */}
+            <div className="flex w-full flex-col items-center">
+              <div className="w-[100px] rounded-sm border border-slate-300/75 bg-white/95 px-1 py-[2px] shadow-2xs">
+                <svg
+                  viewBox={`0 0 ${serialBarcode.totalWidth} 24`}
+                  className="block h-[14px] w-full"
+                  preserveAspectRatio="none"
+                  shapeRendering="crispEdges"
+                  aria-label={`Serial barcode ${registration.serialNumber}`}
+                >
+                  {serialBarcode.bars.map((bar, idx) => (
+                    <rect
+                      key={idx}
+                      x={bar.x}
+                      y={0}
+                      width={bar.width}
+                      height={24}
+                      fill="#090d16"
+                    />
+                  ))}
+                </svg>
+              </div>
+              <div className="mt-[2px] w-full text-center leading-tight break-all">
+                <span className="mr-0.5 text-[6.5px] font-black text-blue-950">ንምራ፡</span>
+                <span className="font-mono text-[7.8px] font-black tracking-[0.06em] text-slate-950">
+                  {registration.serialNumber}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 3. Bottom: Signatures (Natural Dark Ink) and Expiry */}
-        <div className="mt-0.5 flex items-end justify-between border-t-2 border-amber-600/40 pt-1 text-[8px]">
+        {/* 3. Bottom Signature Strip: Frosted Off-White Band so Dark-Ink Signatures & Expiry Date Stay 100% Crisp */}
+        <div
+          className="flex items-end justify-between border-t-2 border-amber-500/80 px-3.5 pt-1 pb-2 text-[8px]"
+          style={{
+            background: 'linear-gradient(90deg, #dce6f2 0%, #eaf0f7 55%, #f4f6f9 100%)',
+          }}
+        >
           {/* Owner Signature */}
           <div className="flex flex-col items-center">
-            <div className="h-6 w-20 flex items-center justify-center">
+            <div className="h-5 w-20 flex items-center justify-center">
               {registration.ownerSignature ? (
                 <img 
                   src={registration.ownerSignature} 
@@ -291,7 +324,7 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
 
           {/* Approver Signature */}
           <div className="flex flex-col items-center">
-            <div className="h-6 w-20 flex items-center justify-center">
+            <div className="h-5 w-20 flex items-center justify-center">
               {isApproved ? (
                 <img 
                   src={registration.approverSignature || branding.defaultApproverSignature} 
@@ -352,22 +385,22 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
         </div>
       )}
 
-      <div className="relative z-10 flex h-full flex-col justify-between p-3.5">
+      <div className="relative z-10 flex h-full flex-col justify-between p-3">
         {/* Top Bar: Emergency Line & Title */}
-        <div className="flex items-center justify-between border-b-2 border-black/40 pb-1 text-[9.5px]">
-          <span className="font-black text-black tracking-wider">
-            የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን
+        <div className="flex flex-wrap items-center justify-between gap-1 border-b-2 border-black/40 pb-1 text-[9px]">
+          <span className="font-black text-black tracking-wide leading-tight">
+            {branding.commissionNameAm || 'የቤኒሻንጉል ጉሙዝ ክልል ፖሊስ ኮሚሽን'}
           </span>
-          <span className="font-black text-blue-950">
+          <span className="font-black text-blue-950 whitespace-nowrap">
             ስልክ ቁጥር {branding.contactPhone}
           </span>
         </div>
 
-        {/* Middle Section: Large QR Code on Left, Notice & Rules on Right */}
-        <div className="my-1 flex flex-1 items-center gap-3">
+        {/* Middle Section: Large QR Code on Left, Uncropped Notice & Rules on Right */}
+        <div className="my-1 flex flex-1 items-center gap-2.5 min-h-0">
           {/* Left: QR Code */}
           <div className="flex flex-col items-center justify-center flex-shrink-0">
-            <div className="h-28 w-28 rounded-lg border-2 border-black bg-white p-1 shadow-sm flex items-center justify-center">
+            <div className="h-[104px] w-[104px] rounded-lg border-2 border-black bg-white p-1 shadow-sm flex items-center justify-center">
               {qrCodeDataUrl ? (
                 <img 
                   src={qrCodeDataUrl} 
@@ -383,19 +416,19 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
             </span>
           </div>
 
-          {/* Right: Strict Notice Body Text (All bold, pitch black) */}
-          <div className="flex flex-1 flex-col justify-center space-y-1 text-left">
+          {/* Right: Strict Notice Body Text (All bold, pitch black, zero clipping) */}
+          <div className="flex flex-1 flex-col justify-center space-y-1 text-left min-w-0">
             <div className="flex items-center gap-1">
-              <span className="font-black text-[11.5px] text-red-700 underline decoration-red-600 decoration-2">
+              <span className="font-black text-[11px] text-red-700 underline decoration-red-600 decoration-2">
                 ጥብቅ ማሳሰቢያ
               </span>
             </div>
 
-            <p className="text-[8.5px] leading-snug font-bold text-black">
+            <p className="text-[8px] leading-[1.26] font-bold text-black break-words whitespace-normal">
               ይህ የመታወቂያ በየአመቱ የሚታደስ ሲሆን መታወቂያዉ ካልታደሰ በየትኛዉም ቦታ ለሚያጋጥማችሁ ችግር ፈቃድ ሰጪ አካል ተጠያቂ አይሆንም፡፡
             </p>
 
-            <div className="space-y-0.5 text-[7.5px] font-bold text-black border-t-2 border-black/30 pt-1">
+            <div className="space-y-0.5 text-[7.2px] leading-[1.24] font-bold text-black border-t-2 border-black/30 pt-1 break-words whitespace-normal">
               <p>1. መሳሪያዉን ከተፈቀደለት ግለሰብ/ድርጅት ውጭ ለሌላ ማስተላለፍ በጥብቅ የተከለከለ ነዉ፡፡</p>
               <p>2. ያስመዘገበዉ መሳሪያ ወይም ጥይት መጠን ሲጨምር ቀርቦ እንደገና ማስመዝገብ አለበት፡፡</p>
               <p>3. ይህ መታወቂያ ህጋዊ የሚሆነው በፖሊስ ኮሚሽኑ የወንጀል መከላከል ሂደት ሲረጋገጥ ብቻ ነው።</p>
@@ -403,13 +436,13 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
           </div>
         </div>
 
-        {/* Bottom: Dates and ID Number (All bold black) */}
-        <div className="flex items-center justify-between border-t-2 border-black/30 pt-1 text-[8px] text-black">
-          <div className="flex gap-3 font-bold text-black">
+        {/* Bottom: Dates and Distinct ID Number (All crisp & uncropped) */}
+        <div className="flex flex-wrap items-center justify-between gap-1 border-t-2 border-black/30 pt-1 text-[7.8px] text-black">
+          <div className="flex flex-wrap gap-2.5 font-bold text-black">
             <span>የተሰጠበት ቀን፡ <b className="font-black text-black">{registration.registrationDate}</b></span>
             <span>የሚያበቃበት ቀን፡ <b className={isExpired ? 'font-black text-red-700' : 'font-black text-black'}>{registration.expiryDate}</b></span>
           </div>
-          <div className="font-mono font-black text-black bg-slate-100 px-1.5 py-0.5 rounded border border-black/40">
+          <div className="font-serif font-black tracking-[0.06em] text-[#7c1111] bg-amber-100 px-2 py-0.5 rounded border border-amber-500/80 shadow-2xs">
             {registration.idCardNumber}
           </div>
         </div>

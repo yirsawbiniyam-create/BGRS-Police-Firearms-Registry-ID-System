@@ -57,23 +57,34 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
       // 3. Query firearms_records collection for this ID number
       try {
         const cleanId = decodeURIComponent(idNumber).trim();
+        const normalizedId = cleanId.replace(/ቤጌፖ/g, 'ቤጉፖ');
+        const legacyId = cleanId.replace(/ቤጉፖ/g, 'ቤጌፖ');
         const recordsCol = collection(db, 'firearms_records');
 
-        // Try searching by idCardNumber
-        const q = query(recordsCol, where('idCardNumber', '==', cleanId));
-        const querySnap = await getDocs(q);
+        // Try searching by idCardNumber (updated and legacy prefix)
+        for (const candidateId of Array.from(new Set([normalizedId, cleanId, legacyId]))) {
+          const q = query(recordsCol, where('idCardNumber', '==', candidateId));
+          const querySnap = await getDocs(q);
 
-        if (!querySnap.empty && isMounted) {
-          const found = querySnap.docs[0].data() as FirearmRegistration;
-          setRecord(found);
-          setIsLoading(false);
-          return;
+          if (!querySnap.empty && isMounted) {
+            const found = querySnap.docs[0].data() as FirearmRegistration;
+            const normalizedFound = found.idCardNumber?.includes('ቤጌፖ')
+              ? { ...found, idCardNumber: found.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') }
+              : found;
+            setRecord(normalizedFound);
+            setIsLoading(false);
+            return;
+          }
         }
 
         // Try direct document ID
         const docSnap = await getDoc(doc(db, 'firearms_records', cleanId));
         if (docSnap.exists() && isMounted) {
-          setRecord(docSnap.data() as FirearmRegistration);
+          const found = docSnap.data() as FirearmRegistration;
+          const normalizedFound = found.idCardNumber?.includes('ቤጌፖ')
+            ? { ...found, idCardNumber: found.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') }
+            : found;
+          setRecord(normalizedFound);
           setIsLoading(false);
           return;
         }
@@ -84,12 +95,17 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
           let matched: FirearmRegistration | null = null;
           allSnap.forEach((d) => {
             const data = d.data() as FirearmRegistration;
+            const recIdLower = (data.idCardNumber || '').toLowerCase();
+            const recIdNorm = recIdLower.replace(/ቤጌፖ/g, 'ቤጉፖ');
             if (
-              data.idCardNumber?.toLowerCase() === cleanId.toLowerCase() ||
+              recIdLower === cleanId.toLowerCase() ||
+              recIdNorm === normalizedId.toLowerCase() ||
               data.certNumber?.toLowerCase() === cleanId.toLowerCase() ||
               data.serialNumber?.toLowerCase() === cleanId.toLowerCase()
             ) {
-              matched = data;
+              matched = data.idCardNumber?.includes('ቤጌፖ')
+                ? { ...data, idCardNumber: data.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') }
+                : data;
             }
           });
           if (matched) {
@@ -122,8 +138,8 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
             <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
               <img src={branding.bgrsFlag} alt="BGRS Flag" className="h-full w-full object-cover" />
             </div>
-            <div className="h-14 w-14 drop-shadow">
-              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full object-contain" />
+            <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-amber-400/70 bg-white shadow">
+              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full rounded-full object-contain" />
             </div>
             <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
               <img src={branding.ethiopiaFlag} alt="Ethiopia Flag" className="h-full w-full object-cover" />
@@ -157,8 +173,8 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
             <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
               <img src={branding.bgrsFlag} alt="BGRS Flag" className="h-full w-full object-cover" />
             </div>
-            <div className="h-14 w-14 drop-shadow">
-              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full object-contain" />
+            <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-amber-400/70 bg-white shadow">
+              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full rounded-full object-contain" />
             </div>
             <div className="h-8 w-12 overflow-hidden rounded border border-slate-600 shadow">
               <img src={branding.ethiopiaFlag} alt="Ethiopia Flag" className="h-full w-full object-cover" />
@@ -211,8 +227,8 @@ export const PublicVerificationView: React.FC<PublicVerificationViewProps> = ({
             {/* Center: Official Police Crest and Titles */}
             <div className="flex flex-col items-center text-center">
               <div className="flex items-center gap-2">
-                <div className="h-12 w-12 drop-shadow">
-                  <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full object-contain" />
+                <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-amber-400/80 bg-white shadow">
+                  <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full rounded-full object-contain" />
                 </div>
                 <div>
                   <h1 className="text-base font-black text-amber-400 font-serif leading-tight">

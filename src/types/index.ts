@@ -114,7 +114,7 @@ export interface FirearmRegistration {
   manufactureYear: string;         // ዓ/ም (የተሰራበት ዓ/ም)
   
   // Identification & Official Numbers
-  idCardNumber: string;            // e.g. ቤጌፖ-ጦመ-0001 (Preserved across weapon changes)
+  idCardNumber: string;            // e.g. ቤጉፖ-ጦመ-0001 (Preserved across weapon changes)
   certNumber: string;              // e.g. 00001/ጦመ-2026
   
   // Registration & Validation Details

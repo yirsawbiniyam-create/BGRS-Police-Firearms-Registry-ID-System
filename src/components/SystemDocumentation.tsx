@@ -72,8 +72,8 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
           </div>
 
           <div className="flex flex-col items-center px-4">
-            <div className="h-20 w-20 mb-2">
-              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full object-contain" />
+            <div className="h-20 w-20 mb-2 overflow-hidden rounded-full border-2 border-amber-500/70 bg-white shadow-sm">
+              <img src={branding.policeLogo} alt="Police Logo" className="h-full w-full rounded-full object-contain" />
             </div>
             <h1 className="text-base sm:text-xl font-black text-slate-950 font-serif leading-tight">
               {branding.commissionNameAm}
@@ -304,7 +304,7 @@ export const SystemDocumentation: React.FC<SystemDocumentationProps> = ({ onBack
               <div className="flex items-start gap-2.5">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">4</span>
                 <div>
-                  <b>የሰነዶች አዘገጃጀትና ህትመት (Card & Certificate Generation)፦</b> ሲጸድቅ ወዲያውኑ ተከታታይ የመታወቂያ ቁጥር (ምሳሌ፡ ቤጌፖ-ጦመ-0001) እና የምስክር ወረቀት ቁጥር ይሰጠዋል። ፊትና ጀርባ ያለው የኤቲኤም ካርድ እና የA4 ሰርቲፊኬት በይፋዊ ማህተምና ፊርማ ታትሞ ይሰጣል።
+                  <b>የሰነዶች አዘገጃጀትና ህትመት (Card & Certificate Generation)፦</b> ሲጸድቅ ወዲያውኑ ተከታታይ የመታወቂያ ቁጥር (ምሳሌ፡ ቤጉፖ-ጦመ-0001) እና የምስክር ወረቀት ቁጥር ይሰጠዋል። ፊትና ጀርባ ያለው የኤቲኤም ካርድ እና የA4 ሰርቲፊኬት በይፋዊ ማህተምና ፊርማ ታትሞ ይሰጣል።
                 </div>
               </div>
               <div className="flex items-start gap-2.5">

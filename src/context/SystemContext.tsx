@@ -122,7 +122,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     mechanism: 'አውቶማቲክ',
     countryOfOrigin: 'ሩሲያ',
     manufactureYear: '1988',
-    idCardNumber: 'ቤጌፖ-ጦመ-0001',
+    idCardNumber: 'ቤጉፖ-ጦመ-0001',
     certNumber: '00001/ጦመ-2026',
     registrationDate: '2026-03-10',
     registrationPlace: 'አሶሳ',
@@ -163,7 +163,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     mechanism: 'ግማሽ አውቶማቲክ',
     countryOfOrigin: 'ሩሲያ',
     manufactureYear: '1995',
-    idCardNumber: 'ቤጌፖ-ጦመ-0002',
+    idCardNumber: 'ቤጉፖ-ጦመ-0002',
     certNumber: '00002/ጦመ-2026',
     registrationDate: '2026-09-18',
     registrationPlace: 'ጊልገል በለስ',
@@ -202,7 +202,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     mechanism: 'አውቶማቲክ',
     countryOfOrigin: 'ሩማንያ',
     manufactureYear: '1984',
-    idCardNumber: 'ቤጌፖ-ጦመ-0003',
+    idCardNumber: 'ቤጉፖ-ጦመ-0003',
     certNumber: '00003/ጦመ-2025',
     registrationDate: '2025-02-10',
     registrationPlace: 'ካማሺ',
@@ -243,7 +243,7 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     mechanism: 'ግማሽ አውቶማቲክ',
     countryOfOrigin: 'ሩሲያ',
     manufactureYear: '1992',
-    idCardNumber: 'ቤጌፖ-ጦመ-0004',
+    idCardNumber: 'ቤጉፖ-ጦመ-0004',
     certNumber: '00004/ጦመ-2026',
     registrationDate: '2026-05-14',
     registrationPlace: 'ቶንጎ',
@@ -261,6 +261,13 @@ const INITIAL_SEED_RECORDS: FirearmRegistration[] = [
     updatedAt: '2026-05-15T16:00:00Z',
   }
 ];
+
+const normalizeRecordIdPrefix = (rec: FirearmRegistration): FirearmRegistration => {
+  if (rec.idCardNumber && rec.idCardNumber.includes('ቤጌፖ')) {
+    return { ...rec, idCardNumber: rec.idCardNumber.replace(/ቤጌፖ/g, 'ቤጉፖ') };
+  }
+  return rec;
+};
 
 const SystemContext = createContext<SystemContextType | undefined>(undefined);
 
@@ -297,7 +304,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const saved = localStorage.getItem(STORAGE_KEYS.RECORDS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(normalizeRecordIdPrefix);
       }
     } catch (e) {
       console.warn('Failed to load local records, falling back to seed', e);
@@ -341,7 +348,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         if (isMounted) {
           if (cachedRecords && Array.isArray(cachedRecords) && cachedRecords.length > 0) {
-            setRecords(cachedRecords);
+            setRecords(cachedRecords.map(normalizeRecordIdPrefix));
           }
           if (cachedBranding && Object.keys(cachedBranding).length > 0) {
             setBranding((prev) => ({
@@ -465,7 +472,12 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (!snapshot.empty) {
             const remoteRecords: FirearmRegistration[] = [];
             snapshot.forEach((docSnap) => {
-              remoteRecords.push(docSnap.data() as FirearmRegistration);
+              const rawRec = docSnap.data() as FirearmRegistration;
+              const normRec = normalizeRecordIdPrefix(rawRec);
+              if (normRec.idCardNumber !== rawRec.idCardNumber) {
+                setDoc(doc(db, 'firearms_records', normRec.id), { idCardNumber: normRec.idCardNumber }, { merge: true }).catch(() => {});
+              }
+              remoteRecords.push(normRec);
             });
             // Sort by createdAt descending
             remoteRecords.sort(
@@ -552,7 +564,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const getNextIdCardNumber = (): string => {
     let maxNum = 0;
     records.forEach(r => {
-      // Format: ቤጌፖ-ጦመ-0001
+      // Format: ቤጉፖ-ጦመ-0001
       const match = r.idCardNumber?.match(/(\d+)$/);
       if (match) {
         const num = parseInt(match[1], 10);
@@ -560,7 +572,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     });
     const next = maxNum + 1;
-    return `ቤጌፖ-ጦመ-${String(next).padStart(4, '0')}`;
+    return `ቤጉፖ-ጦመ-${String(next).padStart(4, '0')}`;
   };
 
   const getNextCertNumber = (): string => {
@@ -943,7 +955,7 @@ export const SystemProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!snapshot.empty) {
         const remoteRecords: FirearmRegistration[] = [];
         snapshot.forEach((docSnap) => {
-          remoteRecords.push(docSnap.data() as FirearmRegistration);
+          remoteRecords.push(normalizeRecordIdPrefix(docSnap.data() as FirearmRegistration));
         });
         remoteRecords.sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

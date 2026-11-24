@@ -198,11 +198,11 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
             {/* Center: Institutional Titles & Police Crest */}
             <div className="flex flex-col items-center text-center px-2">
               <div className="flex items-center gap-2.5">
-                <div className="h-13 w-13 drop-shadow">
+                <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full border border-amber-600/70 bg-white shadow">
                   <img 
                     src={branding.policeLogo} 
                     alt="Police Crest" 
-                    className="h-full w-full object-contain" 
+                    className="h-full w-full rounded-full object-contain" 
                   />
                 </div>
                 <div className="text-center py-1">
@@ -494,12 +494,11 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
                       <span className="text-[7px] font-black tracking-tight text-blue-950 leading-none">
                         የቤ/ጉ/ ፖሊስ ኮሚሽን
                       </span>
-                      {/* Institutional Police Logo as Seal Core */}
-                      <div className="h-13 w-13 my-0.5">
+                      <div className="h-13 w-13 my-0.5 overflow-hidden rounded-full border border-blue-800/40 bg-white">
                         <img
                           src={branding.policeLogo}
                           alt="Police Round Seal"
-                          className="h-full w-full object-contain filter contrast-125"
+                          className="h-full w-full rounded-full object-contain filter contrast-125"
                         />
                       </div>
                       <span className="text-[6.5px] font-black tracking-tight text-blue-900 leading-none">

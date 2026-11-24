@@ -1,10 +1,14 @@
 // Utility to compress and resize images before saving to Firestore to respect the 1MB document limit
 export async function compressImage(
   fileOrDataUrl: File | string,
-  maxWidth = 600,
-  maxHeight = 600,
-  quality = 0.85
+  maxWidth = 800,
+  maxHeight = 800,
+  quality = 0.92
 ): Promise<string> {
+  if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:image/svg+xml')) {
+    return fileOrDataUrl;
+  }
+
   return new Promise((resolve) => {
     const img = new Image();
 
@@ -32,11 +36,13 @@ export async function compressImage(
         return;
       }
 
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
       // SVG or Data URL with alpha: use PNG if transparent, else JPEG
       const isPng =
-        (fileOrDataUrl instanceof File && fileOrDataUrl.type === 'image/png') ||
+        (fileOrDataUrl instanceof File && (fileOrDataUrl.type === 'image/png' || fileOrDataUrl.type === 'image/webp')) ||
         (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:image/png'));
 
       const outputFormat = isPng ? 'image/png' : 'image/jpeg';

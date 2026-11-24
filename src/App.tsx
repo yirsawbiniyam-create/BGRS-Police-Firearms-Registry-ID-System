@@ -43,9 +43,12 @@ const MainApp: React.FC = () => {
   // When QR code is scanned: Isolated public verification view.
   // Strictly verifies authenticity and validity only; prevents entry into the main dashboard/system.
   if (verifyIdParam) {
-    const targetRecord = records.find(
-      r => r.idCardNumber.toLowerCase() === verifyIdParam.toLowerCase()
-    ) || null;
+    const cleanParam = decodeURIComponent(verifyIdParam).trim().toLowerCase();
+    const normalizedParam = cleanParam.replace(/ቤጌፖ/g, 'ቤጉፖ');
+    const targetRecord = records.find((r) => {
+      const recId = (r.idCardNumber || '').toLowerCase();
+      return recId === cleanParam || recId === normalizedParam || recId.replace(/ቤጌፖ/g, 'ቤጉፖ') === normalizedParam;
+    }) || null;
 
     return (
       <PublicVerificationView

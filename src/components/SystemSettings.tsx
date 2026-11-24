@@ -38,8 +38,8 @@ export const SystemSettings: React.FC = () => {
 
     setIsUploading(true);
     try {
-      // Compress to ensure it easily fits within Firestore limits and loads rapidly across all devices
-      const compressedDataUrl = await compressImage(file, 600, 600, 0.9);
+      // High-resolution compression so fine text inside police logos and seals remains razor-sharp
+      const compressedDataUrl = await compressImage(file, 1024, 1024, 0.96);
       
       if (field === 'policeLogo') {
         // Automatically convert the logo into a pure white background watermark as well!
