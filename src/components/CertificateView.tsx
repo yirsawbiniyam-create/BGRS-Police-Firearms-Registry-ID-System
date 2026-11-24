@@ -23,6 +23,12 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
   const isExpired = new Date(registration.expiryDate) < new Date();
   const isSurrendered = registration.status === 'ገቢ የተደረገ' || registration.isSurrendered;
 
+  const isCustomPoliceLogo =
+    Boolean(branding.policeLogo) && !branding.policeLogo.startsWith('data:image/svg+xml');
+  const watermarkLogoSrc = isCustomPoliceLogo
+    ? branding.policeLogo
+    : branding.watermarkLogo || branding.policeLogo;
+
   // Verification URL that links directly to the public verification portal
   const verificationUrl = `${window.location.origin}${window.location.pathname}?verify=${encodeURIComponent(
     registration.idCardNumber
@@ -137,16 +143,16 @@ export const CertificateView: React.FC<CertificateViewProps> = ({
         <div className="pointer-events-none absolute bottom-3 left-3 h-6 w-6 border-b-2 border-l-2 border-amber-900"></div>
         <div className="pointer-events-none absolute bottom-3 right-3 h-6 w-6 border-b-2 border-r-2 border-amber-900"></div>
 
-        {/* Central Watermark: Enlarged Police Commission Logo with Pure White Background (ተለቅ ያለ ደማቅ ዋተርማርክ) */}
-        <div 
-          className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.38] mix-blend-multiply"
-          style={{
-            backgroundImage: `url(${branding.watermarkLogo || branding.policeLogo})`,
-            backgroundPosition: 'center 48%',
-            backgroundSize: '580px',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
+        {/* Central Watermark: User's Uploaded Logo Intact Inside a Circle (No Rectangle, No Whitening) */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.26]">
+          <div className="h-[440px] w-[440px] overflow-hidden rounded-full flex items-center justify-center">
+            <img
+              src={watermarkLogoSrc}
+              alt="Police Logo Watermark"
+              className="h-full w-full rounded-full object-cover object-center"
+            />
+          </div>
+        </div>
 
         {/* Watermark Notice if Pending Approval */}
         {!isApproved && (

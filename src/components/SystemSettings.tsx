@@ -19,7 +19,6 @@ import {
   Palette
 } from 'lucide-react';
 import { compressImage } from '../utils/imageCompressor.ts';
-import { convertLogoToWhiteWatermark } from '../utils/watermarkProcessor.ts';
 import { SecuritySettings } from './SecuritySettings.tsx';
 
 export const SystemSettings: React.FC = () => {
@@ -42,16 +41,11 @@ export const SystemSettings: React.FC = () => {
       const compressedDataUrl = await compressImage(file, 1024, 1024, 0.96);
       
       if (field === 'policeLogo') {
-        // Automatically convert the logo into a pure white background watermark as well!
-        const whiteWatermark = await convertLogoToWhiteWatermark(compressedDataUrl);
+        // Keep the uploaded logo completely intact (no whitening/erasing) for both header and circular watermark
         await updateBranding({ 
           policeLogo: compressedDataUrl,
-          watermarkLogo: whiteWatermark
+          watermarkLogo: compressedDataUrl
         });
-      } else if (field === 'watermarkLogo') {
-        // Ensure uploaded watermark also has background converted to white/transparent
-        const whiteWatermark = await convertLogoToWhiteWatermark(compressedDataUrl);
-        await updateBranding({ watermarkLogo: whiteWatermark });
       } else {
         await updateBranding({ [field]: compressedDataUrl });
       }
@@ -68,11 +62,10 @@ export const SystemSettings: React.FC = () => {
     if (!branding.policeLogo) return;
     setIsUploading(true);
     try {
-      const whiteWatermark = await convertLogoToWhiteWatermark(branding.policeLogo);
-      await updateBranding({ watermarkLogo: whiteWatermark });
+      await updateBranding({ watermarkLogo: branding.policeLogo });
       triggerSuccess();
     } catch (err) {
-      console.error('Failed to auto-convert watermark:', err);
+      console.error('Failed to sync watermark:', err);
     } finally {
       setIsUploading(false);
     }
@@ -196,29 +189,34 @@ export const SystemSettings: React.FC = () => {
           </label>
         </div>
 
-        {/* 1.2. Watermark Logo (Pure White Background & Enlarged Size) */}
+        {/* 1.2. Watermark Logo (Circular & Intact) */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-bold text-amber-400 flex items-center gap-2">
-                <Sparkles className="h-4 w-4" /> የዋተር ማርክ ሎጎ (ነጭ ባክግራውንድ እና ተለቅ ያለ)
+                <Sparkles className="h-4 w-4" /> የዋተር ማርክ ሎጎ (በክብ ውስጥ እንዳለ)
               </span>
               <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                ነጭ ባክግራውንድ
+                ክብ ዋተር ማርክ
               </span>
             </div>
             <p className="text-xs text-slate-400 mb-4">
-              በሰርቲፊኬቱ እና በመታወቂያው ጀርባ ላይ ተለቅ ብሎ ባክግራውንዱ ነጭ ሆኖ የሚቀመጥ ይፋዊ ዋተርማርክ
+              በሰርቲፊኬቱ እና በመታወቂያው ጀርባ ላይ ሳይቆረጥ እና ቀለሙ ሳይቀየር በክብ ውስጥ የሚቀመጥ ይፋዊ ዋተርማርክ
             </p>
-            {/* Pure white background container to verify the watermark blends with white paper */}
-            <div className="flex items-center justify-center rounded-2xl bg-white p-4 border border-slate-700 h-36 relative overflow-hidden shadow-inner">
-              <img
-                src={branding.watermarkLogo || branding.policeLogo}
-                alt="Watermark Logo"
-                className="max-h-full max-w-full object-contain filter drop-shadow-sm"
-              />
+            <div className="flex items-center justify-center rounded-2xl bg-white p-3 border border-slate-700 h-36 relative overflow-hidden shadow-inner">
+              <div className="h-28 w-28 overflow-hidden rounded-full flex items-center justify-center">
+                <img
+                  src={
+                    !branding.policeLogo.startsWith('data:image/svg+xml')
+                      ? branding.policeLogo
+                      : branding.watermarkLogo || branding.policeLogo
+                  }
+                  alt="Watermark Logo"
+                  className="h-full w-full rounded-full object-cover object-center"
+                />
+              </div>
               <span className="absolute bottom-1 right-2 text-[9px] font-bold text-slate-400">
-                የወረቀት እይታ (White Paper)
+                የክብ እይታ (Circular View)
               </span>
             </div>
           </div>
@@ -228,7 +226,7 @@ export const SystemSettings: React.FC = () => {
               onClick={handleAutoConvertWatermark}
               className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-amber-500/15 border border-amber-500/40 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/25 transition"
             >
-              <Wand2 className="h-4 w-4 text-amber-400" /> ከዋናው ሎጎ ባክግራውንዱን ወደ ነጭ ቀይር
+              <Wand2 className="h-4 w-4 text-amber-400" /> ዋናውን ሎጎ እንዳለ ወደ ክብ ዋተርማርክ አድስ
             </button>
             <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-800 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
               <Upload className="h-4 w-4 text-amber-400" /> የተለየ ዋተርማርክ ጫን

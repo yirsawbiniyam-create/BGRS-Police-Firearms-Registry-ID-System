@@ -3,7 +3,6 @@ import QRCode from 'qrcode';
 import { FirearmRegistration, SystemBranding } from '../types/index.ts';
 import { FirearmLifecycleModal } from './FirearmLifecycleModal.tsx';
 import { encodeCode128B } from '../utils/barcode.ts';
-import { convertLogoToWhiteWatermark } from '../utils/watermarkProcessor.ts';
 import { Printer, ShieldCheck, AlertTriangle, Lock, Download, User, Scissors, Check, SlidersHorizontal, CreditCard, ArrowRightLeft, Archive, Phone } from 'lucide-react';
 
 interface IdCardViewProps {
@@ -28,27 +27,14 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
   const [showCropMarks, setShowCropMarks] = useState<boolean>(true);
   const [screenZoom, setScreenZoom] = useState<'atm' | 'large'>('atm');
   const [showLifecycleModal, setShowLifecycleModal] = useState<boolean>(false);
-  const [cleanWatermarkLogo, setCleanWatermarkLogo] = useState<string>('');
   const printContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let active = true;
-    const src = branding.policeLogo || '';
-    if (!src || src.startsWith('data:image/svg+xml')) {
-      setCleanWatermarkLogo(src);
-      return;
-    }
-    convertLogoToWhiteWatermark(src)
-      .then((res) => {
-        if (active) setCleanWatermarkLogo(res || src);
-      })
-      .catch(() => {
-        if (active) setCleanWatermarkLogo(src);
-      });
-    return () => {
-      active = false;
-    };
-  }, [branding.policeLogo]);
+  // Use the user's uploaded logo completely untouched (no whitening/erasing) inside a circular watermark
+  const isCustomPoliceLogo =
+    Boolean(branding.policeLogo) && !branding.policeLogo.startsWith('data:image/svg+xml');
+  const watermarkLogoSrc = isCustomPoliceLogo
+    ? branding.policeLogo
+    : branding.watermarkLogo || branding.policeLogo;
 
   // Check if expired: expiry date < today
   const isExpired = new Date(registration.expiryDate) < new Date();
@@ -392,13 +378,13 @@ export const IdCardView: React.FC<IdCardViewProps> = ({
       {/* Outer Border */}
       <div className="pointer-events-none absolute inset-0 rounded-2xl border-[3px] border-amber-600/40" />
 
-      {/* Central Watermark: Normal Police Logo Inside a Pure White Circle, Bold & Clear */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.36]">
-        <div className="h-48 w-48 overflow-hidden rounded-full bg-white flex items-center justify-center">
+      {/* Central Watermark: User's Uploaded Logo Intact Inside a Circle (No Rectangle, No Whitening, No Cropping) */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.34]">
+        <div className="h-48 w-48 overflow-hidden rounded-full flex items-center justify-center">
           <img
-            src={cleanWatermarkLogo || branding.policeLogo}
+            src={watermarkLogoSrc}
             alt="Police Logo Watermark"
-            className="h-full w-full rounded-full object-cover object-center mix-blend-multiply"
+            className="h-full w-full rounded-full object-cover object-center"
           />
         </div>
       </div>
